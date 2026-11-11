@@ -20,6 +20,8 @@ export type PlaceHit = {
   lng: number;
   kind: string | null;
   address: Address;
+  /** Aus den Koordinaten abgeleitete IANA-Zeitzone (von der Suche gesetzt). */
+  timezone: string | null;
 };
 
 const nominatimItem = z.object({
@@ -78,6 +80,7 @@ export function parseNominatim(json: unknown): PlaceHit[] {
       lng: roundCoord(lng),
       kind: item.data.addresstype ?? item.data.type ?? null,
       address: parseAddress(item.data.address),
+      timezone: null,
     });
   }
   return hits;

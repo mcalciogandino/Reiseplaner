@@ -1,5 +1,6 @@
 "use server";
 
+import tzLookup from "tz-lookup";
 import { cacheKey, parseNominatim, type PlaceHit } from "@/lib/geocode";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,6 +15,15 @@ const USER_AGENT = "Reiseplaner/1.0 (+https://github.com/mcalciogandino/Reisepla
 const MIN_INTERVAL_MS = 1100;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX = 200;
+
+/** Zeitzone zu Koordinaten (offline, aus den Zonengrenzen); null, wenn unbekannt. */
+function zoneAt(lat: number, lng: number): string | null {
+  try {
+    return tzLookup(lat, lng);
+  } catch {
+    return null;
+  }
+}
 
 const cache = new Map<string, { at: number; hits: PlaceHit[] }>();
 let queue: Promise<unknown> = Promise.resolve();
@@ -61,7 +71,7 @@ export async function searchPlaces(query: string): Promise<SearchResult> {
       console.error("geocode failed:", res.status);
       return { ok: false, message: "Die Adresssuche ist gerade nicht erreichbar." };
     }
-    const hits = parseNominatim(await res.json());
+    const hits = parseNominatim(await res.json()).map((h) => ({ ...h, timezone: zoneAt(h.lat, h.lng) }));
     if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
     cache.set(key, { at: Date.now(), hits });
     return { ok: true, hits };

@@ -36,7 +36,7 @@ async function Content({ params, searchParams }: { params: Params; searchParams:
   const supabase = await createClient();
   const { data: stops } = await supabase
     .from("destinations")
-    .select("id, name, timezone")
+    .select("id, name, timezone, lat, lng")
     .eq("trip_id", tripId)
     .order("sort_order", { ascending: true })
     .returns<StopOption[]>();

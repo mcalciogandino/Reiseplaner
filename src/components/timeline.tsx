@@ -1,9 +1,10 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import {
   BedDouble, Building2, Car, CircleDot, House, KeyRound, Landmark, MapPin, Plane,
-  Plus, Route, Ship, Tent, TreePine, TrainFront, type LucideIcon,
+  Route, Ship, Tent, TreePine, TrainFront, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { AddMenu } from "@/components/add-menu";
 import { Card } from "@/components/ui/card";
 import {
   PLACE_KIND_LABELS, TIMEZONES, type Destination, type PlaceKind,
@@ -136,29 +137,12 @@ function AddRow({ tripId, nodes, index }: { tripId: string; nodes: TimelineNode[
   if (ctx.to) transferParams.set("to", ctx.to);
   const transferHref = `/trips/${tripId}/transfers/new${transferParams.size ? `?${transferParams}` : ""}`;
   const placeHref = `/trips/${tripId}/destinations/new?pos=${ctx.position}`;
-  const item =
-    "flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800";
 
   return (
     <div className="grid grid-cols-[1fr_3.5rem]">
       <div />
       <div className={railLine}>
-        <details className="group relative z-10 flex min-h-8 items-center">
-          <summary
-            aria-label="Hier einfügen"
-            className="flex size-6 cursor-pointer list-none items-center justify-center rounded-full border border-neutral-400 bg-background text-neutral-600 hover:border-red-700 hover:text-red-700 [&::-webkit-details-marker]:hidden"
-          >
-            <Plus aria-hidden="true" className="size-4" />
-          </summary>
-          <div className="absolute right-9 top-1/2 z-20 -translate-y-1/2 rounded-lg border border-neutral-300 bg-background p-1 shadow-lg dark:border-neutral-700">
-            <Link href={placeHref} className={item}>
-              <MapPin aria-hidden="true" className="size-4" /> Ort einfügen
-            </Link>
-            <Link href={transferHref} className={item}>
-              <Route aria-hidden="true" className="size-4" /> Verschiebung einfügen
-            </Link>
-          </div>
-        </details>
+        <AddMenu placeHref={placeHref} transferHref={transferHref} />
       </div>
     </div>
   );

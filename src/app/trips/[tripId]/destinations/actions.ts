@@ -6,6 +6,7 @@ import { z } from "zod";
 import { PLACE_KINDS } from "@/lib/destinations";
 import { isValidCoord, roundCoord } from "@/lib/geocode";
 import { createClient } from "@/lib/supabase/server";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export type DestinationFormState = {
   message: string;
@@ -30,7 +31,11 @@ const schema = z
     kind: z.enum(PLACE_KINDS as [string, ...string[]], "Bitte eine Art wählen."),
     arrival_date: date("Bitte ein gültiges Ankunftsdatum wählen."),
     departure_date: date("Bitte ein gültiges Abreisedatum wählen."),
-    timezone: text(60),
+    timezone: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || isValidTimeZone(v), "Bitte eine gültige Zeitzone wählen.")
+      .transform((v) => v || null),
     description: text(2000),
     lodging_name: text(150),
     lodging_checkin: z

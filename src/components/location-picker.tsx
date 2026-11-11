@@ -18,11 +18,16 @@ export function LocationPicker({
   initial,
   defaultQuery = "",
   prefix = "",
+  onPick,
+  onClear,
 }: {
   initial: Chosen;
   defaultQuery?: string;
   /** Präfix für Feldnamen, wenn mehrere Picker in einem Formular stehen (z. B. "from_new_"). */
   prefix?: string;
+  /** Wird nach der Wahl eines Treffers aufgerufen (Koordinaten, abgeleitete Zeitzone). */
+  onPick?: (hit: PlaceHit) => void;
+  onClear?: () => void;
 }) {
   const [chosen, setChosen] = useState<Chosen>(initial);
   const [address, setAddress] = useState<Address>(initial.address);
@@ -50,6 +55,7 @@ export function LocationPicker({
   function pick(h: PlaceHit) {
     setChosen({ lat: String(h.lat), lng: String(h.lng), label: h.label, address: h.address });
     setAddress(h.address);
+    onPick?.(h);
     setHits(null);
     setMessage("");
   }
@@ -113,7 +119,11 @@ export function LocationPicker({
           </div>
           <button
             type="button"
-            onClick={() => setChosen({ lat: "", lng: "", label: "", address: EMPTY_ADDRESS })}
+            onClick={() => {
+              setChosen({ lat: "", lng: "", label: "", address: EMPTY_ADDRESS });
+              setAddress(EMPTY_ADDRESS);
+              onClear?.();
+            }}
             className="min-h-11 shrink-0 px-2 text-sm underline"
           >
             Entfernen

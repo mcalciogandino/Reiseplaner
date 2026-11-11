@@ -26,6 +26,7 @@ describe("parseNominatim", () => {
         lat: 50.11632,
         lng: -122.957356,
         kind: "village",
+        timezone: null,
         address: {
           street: "Village Gate Boulevard",
           house_number: "4090",

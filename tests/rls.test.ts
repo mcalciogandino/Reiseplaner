@@ -225,6 +225,15 @@ describe("Constraints", () => {
     await db.exec("delete from destinations where name = 'x'");
   });
 
+  it("verlangt Koordinaten freier Orte nur paarweise", async () => {
+    const ins = (cols: string, vals: string) =>
+      db.exec(`insert into transfers (trip_id, kind, ${cols}) values ('${TRIP}', 'flight', ${vals})`);
+    await expect(ins("from_lat", "47.4")).rejects.toThrow(/check/);
+    await expect(ins("to_lat, to_lng", "95, 8")).rejects.toThrow(/check/);
+    await expect(ins("from_lat, from_lng", "47.4, 8.5")).resolves.not.toThrow();
+    await db.exec("delete from transfers where from_lat = 47.4");
+  });
+
   it("kennt nur gültige Ortsarten", async () => {
     const ins = (kind: string) =>
       db.exec(`insert into destinations (trip_id, name, kind) values ('${TRIP}', 'k', '${kind}')`);

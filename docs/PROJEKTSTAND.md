@@ -91,6 +91,13 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 - **Neuer Ort direkt in der Verschiebung** («＋ Neuer Ort anlegen …» bei Von/Nach).
 - Neue Migration: `20261111210000_destination_kind.sql` (zusätzlich zu `…190000_destination_location` und `…200000_destination_address`).
 
+## Phase 2, Schritt 6: Schätzung, Zeitzone aus dem Ort, 24-Stunden-Zeit
+
+- **Schätzung** (`src/lib/estimate.ts`): Distanz, Dauer und Ankunft aus Verkehrsmittel und Luftlinie zwischen Start und Ziel (Flug 800 km/h + 45 min, Auto 75 km/h bei Faktor 1,3, Zug 90 km/h bei 1,25, Fähre 30 km/h). Alle Werte lassen sich überschreiben; «Neu schätzen» setzt zurück.
+- **Freie Orte mit Suche** (Flughafen, Bahnhof): Koordinaten in `transfers.from_lat/from_lng/to_lat/to_lng`. Migration: `20261111220000_transfer_coordinates.sql`.
+- **Zeitzone aus dem Ort**: `tz-lookup` bestimmt die IANA-Zone serverseitig aus den Koordinaten des Suchtreffers; beliebige gültige Zonen sind erlaubt, nicht nur die Liste.
+- **Uhrzeiten im 24-Stunden-Format** (`DateTimeField`, `TimeInput`), «+»-Menü der Zeitleiste schliesst sich (`AddMenu`).
+
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.

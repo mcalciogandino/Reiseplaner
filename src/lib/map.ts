@@ -150,19 +150,26 @@ export function googleMapsDirectionsUrl(opts: {
 
 /** Link für eine Verschiebung; Flüge, Fähren und Mietwagen-Termine haben keinen Routenlink. */
 export function transferMapsUrl(
-  t: Pick<Transfer, "kind" | "from_destination_id" | "to_destination_id" | "from_place" | "to_place">,
+  t: Pick<Transfer, "kind" | "from_destination_id" | "to_destination_id" | "from_place" | "to_place"> &
+    Partial<Pick<Transfer, "from_lat" | "from_lng" | "to_lat" | "to_lng">>,
   destinations: Located[],
 ): string | null {
   if (t.kind !== "drive" && t.kind !== "train") return null;
   const byId = new Map(destinations.map((d) => [d.id, d]));
-  const side = (id: string | null, place: string | null): Waypoint | null => {
+  const side = (
+    id: string | null,
+    place: string | null,
+    lat: number | null | undefined,
+    lng: number | null | undefined,
+  ): Waypoint | null => {
     const d = id ? byId.get(id) : undefined;
     if (d && hasCoords(d)) return { lat: d.lat, lng: d.lng };
     if (d) return d.name;
+    if (lat != null && lng != null) return { lat, lng };
     return place && place.trim() ? place : null;
   };
-  const origin = side(t.from_destination_id, t.from_place);
-  const destination = side(t.to_destination_id, t.to_place);
+  const origin = side(t.from_destination_id, t.from_place, t.from_lat, t.from_lng);
+  const destination = side(t.to_destination_id, t.to_place, t.to_lat, t.to_lng);
   if (!origin || !destination) return null;
   return googleMapsDirectionsUrl({ origin, destination, mode: t.kind === "train" ? "transit" : "driving" });
 }

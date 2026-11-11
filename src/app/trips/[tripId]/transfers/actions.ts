@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { TIMEZONES } from "@/lib/destinations";
 import { createClient } from "@/lib/supabase/server";
+import { isValidCoord, roundCoord } from "@/lib/geocode";
+import { isValidTimeZone } from "@/lib/timezone";
 import { locationSchema, NEW_PLACE, NEW_PLACE_KEYS, newPlaceBaseSchema } from "@/lib/place-fields";
 import { KINDS, localToUtcIso } from "@/lib/transfers";
 
@@ -17,10 +18,10 @@ const FIELDS = [
   "kind", "from_destination_id", "to_destination_id", "from_place", "to_place",
   "depart_local", "depart_tz", "arrive_local", "arrive_tz",
   "duration_min", "distance_km", "carrier", "flight_number", "booking_ref",
+  "from_lat", "from_lng", "to_lat", "to_lng",
   ...(["from", "to"] as const).flatMap((side) => NEW_PLACE_KEYS.map((k) => `${side}_new_${k}`)),
 ];
 
-const zones = TIMEZONES.map((t) => t.value) as string[];
 const text = (max: number) =>
   z.string().trim().max(max, `Maximal ${max} Zeichen.`).transform((v) => v || null);
 const optUuid = z.union([z.literal(""), z.uuid()]).transform((v) => v || null);
@@ -58,14 +59,25 @@ const schema = z
     carrier: text(100),
     flight_number: text(30),
     booking_ref: text(100),
+    from_lat: z.string().trim(),
+    from_lng: z.string().trim(),
+    to_lat: z.string().trim(),
+    to_lng: z.string().trim(),
   })
   .superRefine((d, ctx) => {
     for (const [local, tz, label] of [
       [d.depart_local, d.depart_tz, "Abfahrt"],
       [d.arrive_local, d.arrive_tz, "Ankunft"],
     ] as const) {
-      if (local && !zones.includes(tz)) {
+      if (local && !isValidTimeZone(tz)) {
         ctx.addIssue({ code: "custom", message: `${label}: bitte eine Zeitzone wählen.` });
+      }
+    }
+  })
+  .superRefine((d, ctx) => {
+    for (const [lat, lng] of [[d.from_lat, d.from_lng], [d.to_lat, d.to_lng]] as const) {
+      if ((lat === "") !== (lng === "") || (lat !== "" && !isValidCoord(Number(lat), Number(lng)))) {
+        ctx.addIssue({ code: "custom", message: "Der Standort ist unvollständig. Bitte neu suchen." });
       }
     }
   })
@@ -75,6 +87,11 @@ const schema = z
     to_destination_id: d.to_destination_id,
     from_place: d.from_place,
     to_place: d.to_place,
+    // Koordinaten gelten nur für freie Orte (ohne Reiseort) mit Namen.
+    from_lat: d.from_place && !d.from_destination_id && d.from_lat !== "" ? roundCoord(Number(d.from_lat)) : null,
+    from_lng: d.from_place && !d.from_destination_id && d.from_lng !== "" ? roundCoord(Number(d.from_lng)) : null,
+    to_lat: d.to_place && !d.to_destination_id && d.to_lat !== "" ? roundCoord(Number(d.to_lat)) : null,
+    to_lng: d.to_place && !d.to_destination_id && d.to_lng !== "" ? roundCoord(Number(d.to_lng)) : null,
     depart_at: d.depart_local ? localToUtcIso(d.depart_local, d.depart_tz) : null,
     depart_tz: d.depart_local ? d.depart_tz : null,
     arrive_at: d.arrive_local ? localToUtcIso(d.arrive_local, d.arrive_tz) : null,

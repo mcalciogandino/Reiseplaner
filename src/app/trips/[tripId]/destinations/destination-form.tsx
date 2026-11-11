@@ -7,7 +7,9 @@ import { LocationPicker } from "@/components/location-picker";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { PLACE_KIND_LABELS, PLACE_KINDS, TIMEZONES } from "@/lib/destinations";
+import { TimeField } from "@/components/ui/date-time-field";
+import { PLACE_KIND_LABELS, PLACE_KINDS } from "@/lib/destinations";
+import { zoneOptions } from "@/lib/timezone";
 import { dateBounds } from "@/lib/trips";
 import type { DestinationFormState } from "./actions";
 
@@ -32,6 +34,8 @@ export function DestinationForm({
   const [state, formAction, pending] = useActionState<DestinationFormState, FormData>(action, null);
   const v = (k: string) => state?.values[k] ?? String(initial[k] ?? "");
   const [arrival, setArrival] = useState(v("arrival_date"));
+  const [timezone, setTimezone] = useState(v("timezone"));
+  const [derived, setDerived] = useState(false);
   const arrivalBounds = dateBounds(range, arrival);
   const departureBounds = dateBounds(range, v("departure_date"));
 
@@ -70,10 +74,26 @@ export function DestinationForm({
           />
         </Field>
       </div>
-      <Field id="timezone" label="Zeitzone" hint="Uhrzeiten im Tagesplan gelten in der Ortszeit.">
-        <Select id="timezone" name="timezone" defaultValue={v("timezone")}>
+      <Field
+        id="timezone"
+        label="Zeitzone"
+        hint={
+          derived
+            ? "Aus dem Standort abgeleitet. Du kannst sie ändern."
+            : "Wird aus dem Standort abgeleitet; Uhrzeiten im Tagesplan gelten in der Ortszeit."
+        }
+      >
+        <Select
+          id="timezone"
+          name="timezone"
+          value={timezone}
+          onChange={(e) => {
+            setTimezone(e.target.value);
+            setDerived(false);
+          }}
+        >
           <option value="">– keine Angabe –</option>
-          {TIMEZONES.map((z) => (
+          {zoneOptions(timezone).map((z) => (
             <option key={z.value} value={z.value}>{z.label}</option>
           ))}
         </Select>
@@ -94,6 +114,12 @@ export function DestinationForm({
           },
         }}
         defaultQuery={v("name")}
+        onPick={(h) => {
+          if (h.timezone) {
+            setTimezone(h.timezone);
+            setDerived(true);
+          }
+        }}
       />
       <Field id="description" label="Beschreibung">
         <textarea id="description" name="description" defaultValue={v("description")} className={textarea} />
@@ -106,7 +132,7 @@ export function DestinationForm({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="lodging_checkin" label="Check-in ab">
-            <Input id="lodging_checkin" name="lodging_checkin" type="time" defaultValue={v("lodging_checkin").slice(0, 5)} />
+            <TimeField id="lodging_checkin" name="lodging_checkin" defaultValue={v("lodging_checkin").slice(0, 5)} />
           </Field>
           <Field id="lodging_booking_ref" label="Buchungsnummer">
             <Input id="lodging_booking_ref" name="lodging_booking_ref" defaultValue={v("lodging_booking_ref")} />
