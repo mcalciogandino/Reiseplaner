@@ -67,6 +67,12 @@ Jede Reise ist ein eigenes Projekt mit Name, Startort, Zielort, Start- und Endda
 
 Reiseorte (`destinations`) unter jeder Reise: anlegen, bearbeiten, löschen, per Pfeil umsortieren. Felder: Ort, Ankunft, Abreise, Zeitzone, Beschreibung, Unterkunft (Name, Adresse, Check-in, Buchungsnummer), Notizen. Die Übersicht warnt bei Lücken, Überschneidungen und Daten ausserhalb der Reise (`src/lib/route-warnings.ts`, getestet). Reisen lassen sich bearbeiten und löschen. Keine neue Migration nötig.
 
+## Phase 2, Schritt 3: Flüge und Verschiebungen
+
+Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`): Art, Von/Nach (Reiseort oder freier Ort), Abfahrt und Ankunft in Ortszeit mit Zeitzone, Dauer, Distanz, Anbieter, Flugnummer, Buchungsnummer. Die Dauer wird aus den Zeiten berechnet, sonst gilt die manuell erfasste. Umrechnung Ortszeit ↔ UTC in `src/lib/transfers.ts` (getestet, inkl. Sommerzeit).
+
+**Neue Migration einspielen:** `supabase/migrations/20261111180000_transfer_timezones.sql` (Spalten `depart_tz`, `arrive_tz`).
+
 ## Nächster Schritt: Phase 2 (Rest)
 
-Verschiebungen, Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
+Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.

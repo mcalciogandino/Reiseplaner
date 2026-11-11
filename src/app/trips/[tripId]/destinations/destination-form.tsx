@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { TIMEZONES } from "@/lib/destinations";
+import { dateBounds } from "@/lib/trips";
 import type { DestinationFormState } from "./actions";
 
 type Initial = Partial<Record<string, string | number | null>>;
@@ -15,17 +16,22 @@ const textarea =
 
 export function DestinationForm({
   action,
+  range,
   initial = {},
   submitLabel,
   cancelHref,
 }: {
   action: (prev: DestinationFormState, formData: FormData) => Promise<DestinationFormState>;
+  range: { start_date: string; end_date: string };
   initial?: Initial;
   submitLabel: string;
   cancelHref: string;
 }) {
   const [state, formAction, pending] = useActionState<DestinationFormState, FormData>(action, null);
   const v = (k: string) => state?.values[k] ?? String(initial[k] ?? "");
+  const [arrival, setArrival] = useState(v("arrival_date"));
+  const arrivalBounds = dateBounds(range, arrival);
+  const departureBounds = dateBounds(range, v("departure_date"));
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -34,10 +40,25 @@ export function DestinationForm({
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="arrival_date" label="Ankunft">
-          <Input id="arrival_date" name="arrival_date" type="date" defaultValue={v("arrival_date")} />
+          <Input
+            id="arrival_date"
+            name="arrival_date"
+            type="date"
+            min={arrivalBounds.min}
+            max={arrivalBounds.max}
+            defaultValue={v("arrival_date")}
+            onChange={(e) => setArrival(e.target.value)}
+          />
         </Field>
         <Field id="departure_date" label="Abreise">
-          <Input id="departure_date" name="departure_date" type="date" defaultValue={v("departure_date")} />
+          <Input
+            id="departure_date"
+            name="departure_date"
+            type="date"
+            min={arrival && arrival <= departureBounds.max ? arrival : departureBounds.min}
+            max={departureBounds.max}
+            defaultValue={v("departure_date")}
+          />
         </Field>
       </div>
       <Field id="timezone" label="Zeitzone" hint="Uhrzeiten im Tagesplan gelten in der Ortszeit.">

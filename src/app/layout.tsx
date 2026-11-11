@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 
+// Alle Seiten hängen an der Anmeldung (Sitzung wird zur Anfragezeit gelesen).
+// Die Dev-Prüfung für sofortige Navigation meldet das sonst als Fehler.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Kanada-Reiseplaner",
   description: "Gemeinsame Planung der Kanadareise",
