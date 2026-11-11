@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -22,16 +23,17 @@ const tripSchema = z
     path: ["end_date"],
   });
 
+const FIELDS = ["name", "origin", "destination", "start_date", "end_date"];
+
+function readValues(formData: FormData) {
+  return Object.fromEntries(FIELDS.map((k) => [k, String(formData.get(k) ?? "")]));
+}
+
 export async function createTrip(
   _prev: TripFormState,
   formData: FormData,
 ): Promise<TripFormState> {
-  const values = Object.fromEntries(
-    ["name", "origin", "destination", "start_date", "end_date"].map((k) => [
-      k,
-      String(formData.get(k) ?? ""),
-    ]),
-  );
+  const values = readValues(formData);
 
   const parsed = tripSchema.safeParse(values);
   if (!parsed.success) {
@@ -54,4 +56,45 @@ export async function createTrip(
     return { message: "Die Reise konnte nicht gespeichert werden.", values };
   }
   redirect(`/trips/${data.id}`);
+}
+
+export async function updateTrip(
+  tripId: string,
+  _prev: TripFormState,
+  formData: FormData,
+): Promise<TripFormState> {
+  const values = readValues(formData);
+  const parsed = tripSchema.safeParse(values);
+  if (!parsed.success || !z.uuid().safeParse(tripId).success) {
+    return {
+      message: parsed.success ? "Ungültige Reise." : parsed.error.issues[0].message,
+      values,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("trips")
+    .update(parsed.data)
+    .eq("id", tripId)
+    .select("id");
+
+  if (error || !data?.length) {
+    console.error("updateTrip failed:", error?.code, error?.message);
+    return { message: "Die Reise konnte nicht gespeichert werden.", values };
+  }
+  revalidatePath("/", "layout");
+  redirect(`/trips/${tripId}`);
+}
+
+export async function deleteTrip(tripId: string) {
+  if (!z.uuid().safeParse(tripId).success) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from("trips").delete().eq("id", tripId);
+  if (error) {
+    console.error("deleteTrip failed:", error.code, error.message);
+    return;
+  }
+  revalidatePath("/", "layout");
+  redirect("/");
 }
