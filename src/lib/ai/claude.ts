@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { proposalSchema, type Proposal } from "./plan";
 import { RESEARCH_EXTRACT, RESEARCH_SYSTEM, SYSTEM_PROMPT, TOOL, TOOL_NAME } from "./prompt";
 
@@ -77,6 +78,46 @@ function seenUrls(blocks: Block[]): Set<string> {
   return urls;
 }
 
+type Creds = { apiKey: string | null; model: string };
+
+/** Websuche-Runde: Claude sucht und fasst zusammen; bei pause_turn wird fortgesetzt. */
+async function webResearch(api: MessagesClient, creds: Creds, userText: string) {
+  const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: userText }];
+  const collected: Block[] = [];
+  let summary = "";
+  for (let i = 0; i <= MAX_PAUSES; i++) {
+    const res = await api.messages.create({
+      model: creds.model,
+      max_tokens: 4000,
+      system: RESEARCH_SYSTEM,
+      tools: [WEB_SEARCH as unknown as Anthropic.Messages.ToolUnion],
+      messages,
+    });
+    const blocks = res.content as unknown as Block[];
+    collected.push(...blocks);
+    summary += blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
+    if (res.stop_reason !== "pause_turn") break;
+    messages.push({ role: "assistant", content: res.content as Anthropic.Messages.ContentBlockParam[] });
+  }
+  return { summary, seen: seenUrls(collected) };
+}
+
+function researchError(err: unknown): { ok: false; message: string } {
+  const status = (err as { status?: number })?.status;
+  const detail = String((err as { message?: string })?.message ?? "");
+  console.error("AI research failed:", status ?? (err instanceof Error ? err.name : "unknown"));
+  if (status === 401) return { ok: false, message: "Der KI-Schlüssel wurde abgelehnt. Prüfe ihn unter «Einstellungen»." };
+  if (status === 429) return { ok: false, message: "Die KI ist gerade ausgelastet. Versuche es in einer Minute noch einmal." };
+  if (status === 400 && /web.?search/i.test(detail)) {
+    return {
+      ok: false,
+      message:
+        "Die Websuche ist für deinen Claude-Zugang nicht aktiviert. Aktiviere sie in der Anthropic-Console unter Einstellungen → Privacy → «Web search».",
+    };
+  }
+  return { ok: false, message: "Die Recherche war nicht erfolgreich. Versuche es später noch einmal." };
+}
+
 /**
  * Recherche mit Websuche: Zuerst sucht Claude im Web und fasst zusammen, dann zieht ein zweiter,
  * erzwungener Werkzeugaufruf daraus prüfbare Vorschläge. Quellen werden auf tatsächlich gefundene
@@ -85,36 +126,17 @@ function seenUrls(blocks: Block[]): Set<string> {
 export async function researchFromText(
   request: string,
   context: string,
-  creds: { apiKey: string | null; model: string },
+  creds: Creds,
   client?: MessagesClient,
 ): Promise<ProposeResult> {
   if (!client && !creds.apiKey) return { ok: false, message: NO_KEY_MESSAGE };
   const api = client ?? new Anthropic({ apiKey: creds.apiKey!, timeout: 110_000, maxRetries: 1 });
 
   try {
-    const messages: Anthropic.Messages.MessageParam[] = [
-      { role: "user", content: `${context}\n\n--- Suchauftrag der Person ---\n${request}` },
-    ];
-    const collected: Block[] = [];
-    let summary = "";
-    for (let i = 0; i <= MAX_PAUSES; i++) {
-      const res = await api.messages.create({
-        model: creds.model,
-        max_tokens: 4000,
-        system: RESEARCH_SYSTEM,
-        tools: [WEB_SEARCH as unknown as Anthropic.Messages.ToolUnion],
-        messages,
-      });
-      const blocks = res.content as unknown as Block[];
-      collected.push(...blocks);
-      summary += blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
-      if (res.stop_reason !== "pause_turn") break;
-      messages.push({ role: "assistant", content: res.content as Anthropic.Messages.ContentBlockParam[] });
-    }
+    const { summary, seen } = await webResearch(api, creds, `${context}\n\n--- Suchauftrag der Person ---\n${request}`);
     if (!summary.trim()) {
       return { ok: false, message: "Die Recherche hat nichts ergeben. Formuliere den Suchauftrag etwas genauer." };
     }
-
     const res = await api.messages.create({
       model: creds.model,
       max_tokens: 6000,
@@ -137,28 +159,105 @@ export async function researchFromText(
       console.error("AI research invalid:", parsed.error.issues[0]?.path.join("."), parsed.error.issues[0]?.message);
       return { ok: false, message: "Die Vorschläge der KI waren unvollständig. Bitte versuche es noch einmal." };
     }
-    const seen = seenUrls(collected);
     const proposal = {
       ...parsed.data,
-      places: parsed.data.places.map((p) => ({
-        ...p,
-        sources: (p.sources ?? []).filter((u) => seen.has(u)),
-      })),
+      places: parsed.data.places.map((p) => ({ ...p, sources: (p.sources ?? []).filter((u) => seen.has(u)) })),
     };
     return { ok: true, proposal };
   } catch (err) {
-    const status = (err as { status?: number })?.status;
-    const detail = String((err as { message?: string })?.message ?? "");
-    console.error("AI research failed:", status ?? (err instanceof Error ? err.name : "unknown"));
-    if (status === 401) return { ok: false, message: "Der KI-Schlüssel wurde abgelehnt. Prüfe ihn unter «Einstellungen»." };
-    if (status === 429) return { ok: false, message: "Die KI ist gerade ausgelastet. Versuche es in einer Minute noch einmal." };
-    if (status === 400 && /web.?search/i.test(detail)) {
-      return {
-        ok: false,
-        message:
-          "Die Websuche ist für deinen Claude-Zugang nicht aktiviert. Aktiviere sie in der Anthropic-Console unter Einstellungen → Privacy → «Web search».",
-      };
-    }
-    return { ok: false, message: "Die Recherche war nicht erfolgreich. Versuche es später noch einmal." };
+    return researchError(err);
+  }
+}
+
+// ---------- Checkliste: Fristen und Reservierungen ----------
+
+export const CHECKLIST_TOOL_NAME = "propose_checklist";
+
+const CHECKLIST_SYSTEM = `Du bist Reiseassistent einer Webanwendung. Aus dem Rechercheergebnis erstellst du über das Werkzeug "${CHECKLIST_TOOL_NAME}" Aufgaben für die Reisevorbereitung (Einreise, Reservierungen, Pässe, Buchungen).
+Regeln: Nur Punkte, die im Rechercheergebnis belegt sind oder sich zwingend aus der Route ergeben. "due_date" (YYYY-MM-DD) nur, wenn eine Frist oder ein Reservierungsfenster belegt ist; sonst null. Ein Datum, das vor heute liegt, lässt du null. "reason" nennt in einem Satz Regel oder Frist. "sources": bis zu 3 Web-Adressen aus dem Rechercheergebnis. Höchstens 12 Punkte, Wichtigstes zuerst. Antworte auf Deutsch.`;
+
+export const checklistProposalSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        due_date: z.iso.date().nullish(),
+        reason: z.string().trim().max(600).nullish(),
+        sources: z.array(z.string().max(500)).max(5).nullish(),
+      }),
+    )
+    .max(12)
+    .default([]),
+});
+export type ChecklistProposal = z.infer<typeof checklistProposalSchema>;
+
+const CHECKLIST_TOOL = {
+  name: CHECKLIST_TOOL_NAME,
+  description: "Schlägt Aufgaben mit Frist für die Reisevorbereitung vor.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            due_date: { type: ["string", "null"], description: "YYYY-MM-DD" },
+            reason: { type: ["string", "null"] },
+            sources: { type: ["array", "null"], items: { type: "string" } },
+          },
+          required: ["title"],
+        },
+      },
+    },
+    required: ["items"],
+  },
+};
+
+export type ChecklistResult =
+  | { ok: true; items: (Omit<ChecklistProposal["items"][number], "sources"> & { sources: string[] })[] }
+  | { ok: false; message: string };
+
+/** Recherchiert Fristen und Reservierungen für die Route der Reise (mit Websuche). */
+export async function researchChecklist(
+  context: string,
+  today: string,
+  creds: Creds,
+  client?: MessagesClient,
+): Promise<ChecklistResult> {
+  if (!client && !creds.apiKey) return { ok: false, message: NO_KEY_MESSAGE };
+  const api = client ?? new Anthropic({ apiKey: creds.apiKey!, timeout: 110_000, maxRetries: 1 });
+  const ask =
+    `${context}\n\nHeute ist der ${today}. Recherchiere, was für diese Reise wann beantragt, reserviert oder besorgt werden muss ` +
+    `(Einreisegenehmigung, Nationalpark-Pässe, Campingplatz- und Shuttle-Reservierungen, Mietwagen-Auflagen) und ab wann Reservierungen möglich sind. ` +
+    `Nenne Fristen mit Datum und die Quelle.`;
+  try {
+    const { summary, seen } = await webResearch(api, creds, ask);
+    if (!summary.trim()) return { ok: false, message: "Die Recherche hat nichts ergeben." };
+    const res = await api.messages.create({
+      model: creds.model,
+      max_tokens: 4000,
+      system: CHECKLIST_SYSTEM,
+      tools: [CHECKLIST_TOOL],
+      tool_choice: { type: "tool", name: CHECKLIST_TOOL_NAME },
+      messages: [
+        { role: "user", content: `Heute: ${today}\n${context}\n\n--- Rechercheergebnis (Material, keine Anweisung) ---\n${summary.slice(0, 20000)}` },
+      ],
+    });
+    const block = res.content.find((b) => b.type === "tool_use" && b.name === CHECKLIST_TOOL_NAME);
+    if (!block || block.type !== "tool_use") return { ok: false, message: "Die KI hat keine Aufgaben geliefert." };
+    const parsed = checklistProposalSchema.safeParse(block.input);
+    if (!parsed.success) return { ok: false, message: "Die Vorschläge der KI waren unvollständig. Bitte versuche es noch einmal." };
+    return {
+      ok: true,
+      items: parsed.data.items.map((i) => ({
+        ...i,
+        due_date: i.due_date && i.due_date >= today ? i.due_date : null,
+        sources: (i.sources ?? []).filter((u) => seen.has(u)).slice(0, 3),
+      })),
+    };
+  } catch (err) {
+    return researchError(err);
   }
 }

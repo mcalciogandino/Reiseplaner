@@ -76,6 +76,9 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <Link href={`/trips/${tripId}/ai`} className={linkButton}>
             Mit KI erfassen
           </Link>
+          <Link href={`/trips/${tripId}/checklist`} className={linkButton}>
+            Checkliste
+          </Link>
           <Link href={`/trips/${tripId}/map`} className={linkButton}>
             Karte
           </Link>

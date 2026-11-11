@@ -77,3 +77,7 @@ create policy owner_all on user_settings for all to authenticated
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 revoke all on user_settings from anon;
 grant select, insert, update, delete on user_settings to authenticated;
+
+-- Checkliste: Notiz und Quelle
+alter table checklist_items add column if not exists notes text;
+alter table checklist_items add column if not exists source_ref text;
