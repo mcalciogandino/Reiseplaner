@@ -73,7 +73,7 @@ export function DateTimeField({
   const emit = (d: string, t: string) => onChange(d || t ? `${d}T${t}` : "");
 
   return (
-    <div className="grid grid-cols-[1fr_6.5rem] gap-2">
+    <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-2">
       <input type="hidden" name={name} value={value} />
       <Input
         id={id}

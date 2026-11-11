@@ -233,7 +233,7 @@ export function TransferForm({
             }}
           />
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4">
           <Field id="depart_local" label="Abfahrt (Ortszeit, 24 h)">
             <DateTimeField
               id="depart_local"
@@ -264,7 +264,7 @@ export function TransferForm({
             }}
           />
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4">
           <Field
             id="arrive_local"
             label="Ankunft (Ortszeit, 24 h)"
