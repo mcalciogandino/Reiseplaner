@@ -18,6 +18,8 @@ export function TripMap({ data }: { data: MapData }) {
 
     (async () => {
       const maplibregl = await import("maplibre-gl");
+      // Worker liegt als statische Datei in public/ (siehe scripts/copy-maplibre-worker.mjs).
+      maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
       if (cancelled || !container.current) return;
 
       const map = new maplibregl.Map({
