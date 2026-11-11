@@ -63,6 +63,10 @@ Jede Reise ist ein eigenes Projekt mit Name, Startort, Zielort, Start- und Endda
 
 **Neue Migration einspielen:** `supabase/migrations/20261111120000_trip_origin_destination.sql` im SQL Editor ausführen.
 
+## Phase 2, Schritt 2: Reiseorte
+
+Reiseorte (`destinations`) unter jeder Reise: anlegen, bearbeiten, löschen, per Pfeil umsortieren. Felder: Ort, Ankunft, Abreise, Zeitzone, Beschreibung, Unterkunft (Name, Adresse, Check-in, Buchungsnummer), Notizen. Die Übersicht warnt bei Lücken, Überschneidungen und Daten ausserhalb der Reise (`src/lib/route-warnings.ts`, getestet). Reisen lassen sich bearbeiten und löschen. Keine neue Migration nötig.
+
 ## Nächster Schritt: Phase 2 (Rest)
 
-Reise anlegen (Platzhalterdaten), Reiseorte, Verschiebungen, Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
+Verschiebungen, Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
