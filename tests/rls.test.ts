@@ -225,6 +225,14 @@ describe("Constraints", () => {
     await db.exec("delete from destinations where name = 'x'");
   });
 
+  it("kennt nur gültige Ortsarten", async () => {
+    const ins = (kind: string) =>
+      db.exec(`insert into destinations (trip_id, name, kind) values ('${TRIP}', 'k', '${kind}')`);
+    await expect(ins("ufo")).rejects.toThrow(/check/);
+    await expect(ins("national_park")).resolves.not.toThrow();
+    await db.exec("delete from destinations where name = 'k'");
+  });
+
   it("erlaubt pro Reise nur einen Tagesplan je Datum", async () => {
     await expect(
       db.exec(`insert into day_plans (trip_id, date) values ('${TRIP}', '2027-07-01')`),

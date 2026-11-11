@@ -103,11 +103,11 @@ type Side = "from" | "to";
 function parseNewPlace(values: Record<string, string>, side: Side) {
   const get = (k: string) => values[`${side}_new_${k}`] ?? "";
   const base = newPlaceBaseSchema.safeParse({
-    name: get("name"), timezone: get("timezone"), lodging_name: get("lodging_name"),
+    name: get("name"), kind: get("kind") || "city", timezone: get("timezone"), lodging_name: get("lodging_name"),
   });
   if (!base.success) return { error: base.error.issues[0].message };
   const loc = locationSchema.safeParse(
-    Object.fromEntries(NEW_PLACE_KEYS.filter((k) => !["name", "timezone", "lodging_name"].includes(k)).map((k) => [k, get(k)])),
+    Object.fromEntries(NEW_PLACE_KEYS.filter((k) => !["name", "kind", "timezone", "lodging_name"].includes(k)).map((k) => [k, get(k)])),
   );
   if (!loc.success) return { error: loc.error.issues[0].message };
   return { row: { ...base.data, ...loc.data } };

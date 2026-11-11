@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isValidCoord, roundCoord } from "./geocode";
-import { TIMEZONES } from "./destinations";
+import { PLACE_KINDS, TIMEZONES } from "./destinations";
 
 /** Wert im Auswahlfeld «Reiseort», der «Neuer Ort anlegen …» bedeutet. */
 export const NEW_PLACE = "__new__";
@@ -41,6 +41,7 @@ const zones = TIMEZONES.map((t) => t.value) as string[];
 /** Grunddaten eines Ortes, der direkt im Verschiebungsformular angelegt wird. */
 export const newPlaceBaseSchema = z.object({
   name: z.string().trim().min(1, "Bitte den Namen des neuen Ortes eingeben.").max(100),
+  kind: z.enum(PLACE_KINDS as [string, ...string[]], "Bitte eine Art wählen."),
   timezone: z
     .string()
     .refine((v) => v === "" || zones.includes(v), "Bitte eine gültige Zeitzone wählen.")
@@ -49,7 +50,7 @@ export const newPlaceBaseSchema = z.object({
 });
 
 export const NEW_PLACE_KEYS = [
-  "name", "timezone", "lodging_name",
+  "name", "kind", "timezone", "lodging_name",
   "lat", "lng", "place_label",
   "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country",
 ] as const;

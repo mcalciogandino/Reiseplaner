@@ -23,11 +23,15 @@ describe("locationSchema", () => {
 });
 
 describe("newPlaceBaseSchema", () => {
+  it("lehnt unbekannte Ortsarten ab", () => {
+    expect(newPlaceBaseSchema.safeParse({ name: "X", kind: "ufo", timezone: "", lodging_name: "" }).success).toBe(false);
+  });
+
   it("verlangt einen Namen und eine bekannte Zeitzone", () => {
-    expect(newPlaceBaseSchema.safeParse({ name: " ", timezone: "", lodging_name: "" }).success).toBe(false);
-    expect(newPlaceBaseSchema.safeParse({ name: "Banff", timezone: "Mars/Olympus", lodging_name: "" }).success).toBe(false);
-    expect(newPlaceBaseSchema.parse({ name: "Banff", timezone: "America/Edmonton", lodging_name: "" })).toEqual({
-      name: "Banff", timezone: "America/Edmonton", lodging_name: null,
+    expect(newPlaceBaseSchema.safeParse({ name: " ", kind: "city", timezone: "", lodging_name: "" }).success).toBe(false);
+    expect(newPlaceBaseSchema.safeParse({ name: "Banff", kind: "city", timezone: "Mars/Olympus", lodging_name: "" }).success).toBe(false);
+    expect(newPlaceBaseSchema.parse({ name: "Banff", kind: "national_park", timezone: "America/Edmonton", lodging_name: "" })).toEqual({
+      name: "Banff", kind: "national_park", timezone: "America/Edmonton", lodging_name: null,
     });
   });
 });

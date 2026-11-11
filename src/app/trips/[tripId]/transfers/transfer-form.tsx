@@ -9,7 +9,7 @@ import { LocationPicker } from "@/components/location-picker";
 import { Select } from "@/components/ui/select";
 import { EMPTY_ADDRESS } from "@/lib/geocode";
 import { NEW_PLACE } from "@/lib/place-fields";
-import { TIMEZONES } from "@/lib/destinations";
+import { PLACE_KIND_LABELS, PLACE_KINDS, TIMEZONES } from "@/lib/destinations";
 import { KIND_LABELS, KINDS } from "@/lib/transfers";
 import { dateTimeBounds } from "@/lib/trips";
 import type { TransferFormState } from "./actions";
@@ -79,6 +79,13 @@ export function TransferForm({
         <p className="text-sm font-medium">Neuer Ort</p>
         <Field id={`${p}name`} label="Name">
           <Input id={`${p}name`} name={`${p}name`} required defaultValue={v(`${p}name`)} placeholder="z. B. Whistler" />
+        </Field>
+        <Field id={`${p}kind`} label="Art des Ortes">
+          <Select id={`${p}kind`} name={`${p}kind`} defaultValue={v(`${p}kind`) || "city"}>
+            {PLACE_KINDS.map((k) => (
+              <option key={k} value={k}>{PLACE_KIND_LABELS[k]}</option>
+            ))}
+          </Select>
         </Field>
         <Field id={`${p}timezone`} label="Zeitzone" hint="Gilt auch für die Uhrzeit dieser Verschiebung.">
           <Select

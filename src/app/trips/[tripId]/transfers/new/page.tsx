@@ -9,19 +9,27 @@ import { createTransfer } from "../actions";
 import { TransferForm, type StopOption } from "../transfer-form";
 
 type Params = Promise<{ tripId: string }>;
+type SearchParams = Promise<{ from?: string; to?: string }>;
 
-export default function NewTransferPage({ params }: { params: Params }) {
+export default function NewTransferPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 p-4">
       <Suspense fallback={<p>Lädt …</p>}>
-        <Content params={params} />
+        <Content params={params} searchParams={searchParams} />
       </Suspense>
     </main>
   );
 }
 
-async function Content({ params }: { params: Params }) {
+async function Content({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
   const { tripId } = await params;
+  const query = await searchParams;
   if (!z.uuid().safeParse(tripId).success) notFound();
 
   const range = await getTripRange(tripId);
@@ -32,6 +40,18 @@ async function Content({ params }: { params: Params }) {
     .eq("trip_id", tripId)
     .order("sort_order", { ascending: true })
     .returns<StopOption[]>();
+
+  // «+» in der Zeitleiste: Von/Nach mit den Nachbarorten vorbelegen (nur bekannte Orte).
+  const known = new Map((stops ?? []).map((s) => [s.id, s]));
+  const initial: Record<string, string> = {};
+  if (query.from && known.has(query.from)) {
+    initial.from_destination_id = query.from;
+    initial.depart_tz = known.get(query.from)?.timezone ?? "";
+  }
+  if (query.to && known.has(query.to)) {
+    initial.to_destination_id = query.to;
+    initial.arrive_tz = known.get(query.to)?.timezone ?? "";
+  }
 
   return (
     <>
@@ -44,6 +64,7 @@ async function Content({ params }: { params: Params }) {
           action={createTransfer.bind(null, tripId)}
           range={range}
           stops={stops ?? []}
+          initial={initial}
           submitLabel="Verschiebung hinzufügen"
           cancelHref={`/trips/${tripId}`}
         />

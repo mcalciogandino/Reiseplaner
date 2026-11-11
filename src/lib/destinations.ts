@@ -1,6 +1,19 @@
+export type PlaceKind = "city" | "village" | "camping" | "national_park" | "attraction" | "other";
+
+export const PLACE_KIND_LABELS: Record<PlaceKind, string> = {
+  city: "Stadt",
+  village: "Dorf",
+  camping: "Campingplatz",
+  national_park: "Nationalpark",
+  attraction: "Ausflugsziel",
+  other: "Sonstiges",
+};
+export const PLACE_KINDS = Object.keys(PLACE_KIND_LABELS) as PlaceKind[];
+
 export type Destination = {
   id: string;
   name: string;
+  kind: PlaceKind;
   description: string | null;
   arrival_date: string | null; // YYYY-MM-DD
   departure_date: string | null;
@@ -23,7 +36,7 @@ export type Destination = {
 };
 
 export const DESTINATION_COLUMNS =
-  "id, name, description, arrival_date, departure_date, sort_order, timezone, lodging_name, lodging_address, lodging_checkin, lodging_booking_ref, notes, lat, lng, place_label, addr_street, addr_house_number, addr_postcode, addr_city, addr_region, addr_country";
+  "id, name, kind, description, arrival_date, departure_date, sort_order, timezone, lodging_name, lodging_address, lodging_checkin, lodging_booking_ref, notes, lat, lng, place_label, addr_street, addr_house_number, addr_postcode, addr_city, addr_region, addr_country";
 
 export const TIMEZONES = [
   { value: "America/Vancouver", label: "Pacific (Vancouver, Whistler)" },

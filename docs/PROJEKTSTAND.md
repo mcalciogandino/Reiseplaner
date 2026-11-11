@@ -84,6 +84,13 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 
 **Stufe 2 (noch offen):** Strassenrouten mit OpenRouteService (Gratis-Schlüssel nötig, `ORS_API_KEY` nur serverseitig), Koordinaten für freie Orte in Verschiebungen (Flughäfen), Tageskarte.
 
+## Phase 2, Schritt 5: Zeitleiste, Ortsarten, Neuer Ort in der Verschiebung
+
+- **Zeitleiste** auf der Reiseseite: Orte, Verschiebungen und freie Orte (Flughäfen …) in zeitlicher Reihenfolge (`src/lib/timeline.ts`). Rechts die Symbolleiste mit «+» zwischen den Symbolen: Ort oder Verschiebung an dieser Stelle einfügen (Vorbelegung Von/Nach bzw. Einfügeposition in der Route).
+- **Ortsarten:** Stadt, Dorf, Campingplatz, Nationalpark, Ausflugsziel, Sonstiges.
+- **Neuer Ort direkt in der Verschiebung** («＋ Neuer Ort anlegen …» bei Von/Nach).
+- Neue Migration: `20261111210000_destination_kind.sql` (zusätzlich zu `…190000_destination_location` und `…200000_destination_address`).
+
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.

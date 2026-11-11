@@ -7,7 +7,7 @@ import { LocationPicker } from "@/components/location-picker";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { TIMEZONES } from "@/lib/destinations";
+import { PLACE_KIND_LABELS, PLACE_KINDS, TIMEZONES } from "@/lib/destinations";
 import { dateBounds } from "@/lib/trips";
 import type { DestinationFormState } from "./actions";
 
@@ -39,6 +39,13 @@ export function DestinationForm({
     <form action={formAction} className="flex flex-col gap-4">
       <Field id="name" label="Ort">
         <Input id="name" name="name" required defaultValue={v("name")} placeholder="z. B. Whistler" />
+      </Field>
+      <Field id="kind" label="Art des Ortes">
+        <Select id="kind" name="kind" defaultValue={v("kind") || "city"}>
+          {PLACE_KINDS.map((k) => (
+            <option key={k} value={k}>{PLACE_KIND_LABELS[k]}</option>
+          ))}
+        </Select>
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="arrival_date" label="Ankunft">
