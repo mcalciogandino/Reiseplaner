@@ -1,4 +1,4 @@
-# Projektstand (Stand 11.11.2026)
+# Projektstand (Stand 11.11.2026, nach Phase 1)
 
 Grundlage: Projekt «Kanada Travel Planner», Dokument «Konzept v2». Dieses Dokument hält die Entscheide und Angaben aus dem Planungs-Chat fest, damit ein neuer Chat ohne Rückfragen weitermachen kann.
 
@@ -34,13 +34,29 @@ Grundlage: Projekt «Kanada Travel Planner», Dokument «Konzept v2». Dieses Do
 - [ ] Vercel-Konto mit GitHub verbinden
 - [ ] Anthropic-API-Key mit Guthaben (erst ab Phase 3 nötig)
 - [ ] Sentry (optional, später)
-- [ ] Netzwerkzugriff für Paketinstallationen (`npm install`) in den Claude-Einstellungen erlauben und einen neuen Chat starten. Im bisherigen Chat war Bash ohne Netzwerk, daher wurde noch kein Code erzeugt.
+- [x] Netzwerkzugriff für Paketinstallationen (erledigt, `npm install` funktioniert)
 
-## Nächster Schritt: Phase 1
+## Phase 1: Stand
 
-1. Next.js-Projekt (App Router, TypeScript strict, Tailwind, shadcn/ui) im Repo anlegen
-2. Supabase-Anbindung mit `@supabase/ssr`, Magic-Link-Login
-3. Datenbankschema aus Konzept v2 als Migration unter `supabase/migrations/`
-4. RLS auf allen Tabellen und im Storage, dazu ein Test
-5. Mobile-first-Grundlayout, PWA-Manifest
-6. Vercel-Deployment aus `main`
+Im Code erledigt (Branch `phase-1`):
+
+1. Next.js 16 (App Router, TypeScript strict, Tailwind 4), UI-Bausteine im shadcn-Stil von Hand (`src/components/ui`), da `ui.shadcn.com` im Claude-Arbeitsbereich nicht erreichbar ist
+2. Supabase-Anbindung mit `@supabase/ssr`, Magic-Link-Login (`/login`, `/auth/callback`), Sessionschutz in `src/proxy.ts` (in Next 16 heisst `middleware` jetzt `proxy`)
+3. Migration `supabase/migrations/20261111000000_initial_schema.sql`: 15 Tabellen, Constraints, `budget_summary`-View, privater Storage-Bucket `documents`
+4. RLS auf allen Tabellen und im Storage; `npm test` führt die Migration auf Postgres (PGlite) aus und prüft 40 Fälle, darunter «fremder Nutzer sieht nichts»
+5. Mobile-first-Grundlayout, PWA-Manifest und Icons (Platzhalter), Schrift Geist selbst gehostet (`geist`-Paket)
+6. `npm run lint`, `npm run typecheck`, `npm test` und `npm run build` laufen sauber
+
+Budgetkategorien wurden um `camping`, `passes` und `insurance` erweitert.
+
+## Von dir zu erledigen, bevor Phase 1 live läuft
+
+1. **Migration einspielen:** Supabase → SQL Editor → Inhalt der Migrationsdatei einfügen und ausführen (oder später per `supabase db push`).
+2. **Account anlegen:** Supabase → Authentication → Users → «Add user» mit der gemeinsamen E-Mail-Adresse.
+3. **Auth-Einstellungen:** Authentication → URL Configuration: Site URL und Redirect-URLs `http://localhost:3000/auth/callback` sowie die spätere Vercel-Adresse `https://<projekt>.vercel.app/auth/callback` eintragen.
+4. **Mail-Vorlage für Magic Link:** Authentication → Email Templates → «Magic Link»: Link auf `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email` ändern. Dann funktioniert der Link auch, wenn er auf einem anderen Gerät geöffnet wird als dem, auf dem er angefordert wurde.
+5. **Vercel:** Repo importieren, Umgebungsvariablen `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` setzen.
+
+## Nächster Schritt: Phase 2
+
+Reise anlegen (Platzhalterdaten), Reiseorte, Verschiebungen, Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
