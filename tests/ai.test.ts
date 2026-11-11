@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlan, type GeoHit, type Geocoder, type KnownPlace } from "../src/lib/ai/build-plan";
-import { proposeFromText, researchFromText, reviewTrip, suggestPacking } from "../src/lib/ai/claude";
+import { proposeFromText, researchFromText, describePlace, reviewTrip, suggestPacking } from "../src/lib/ai/claude";
 import { planSchema, proposalSchema } from "../src/lib/ai/plan";
 import { TOOL_NAME, tripContext } from "../src/lib/ai/prompt";
 
@@ -266,5 +266,18 @@ describe("Packliste und Reise-Check", () => {
   });
   it("verlangt einen Schlüssel", async () => {
     expect(await suggestPacking("ctx", { apiKey: null, model: "m" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("describePlace", () => {
+  const info = { name: "Whistler", kind: "Camping", where: "British Columbia, Kanada", trip: "Kanada", dates: "" };
+  const reply = (input: unknown) =>
+    ({ messages: { create: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "describe_place", input }] }) } }) as never;
+  it("setzt Beschreibung und Tipps zu einem Text zusammen", async () => {
+    const res = await describePlace(info, { apiKey: "k", model: "m" }, reply({ description: "Bergdorf.", tips: ["Peak 2 Peak"] }));
+    expect(res).toEqual({ ok: true, text: "Bergdorf.\n\nTipps:\n- Peak 2 Peak" });
+  });
+  it("meldet fehlenden Schlüssel", async () => {
+    expect(await describePlace(info, { apiKey: null, model: "m" })).toMatchObject({ ok: false });
   });
 });

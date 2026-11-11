@@ -127,3 +127,4 @@ Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
 - Voraussetzung: «Web search» muss in der Anthropic-Console aktiviert sein.
 - Checkliste `/trips/[id]/checklist` (Backlog A1): Aufgaben mit Frist, abhakbar; «Fristen recherchieren» lässt die KI per Websuche Fristen/Reservierungen für die Route finden (Auswahl, Quelle, nichts vorausgewählt). Migration `20261111260000_checklist_extras.sql` (notes, source_ref).
 - Weitere KI-Helfer: «Packliste vorschlagen» (Checkliste, Backlog B1; Auswahl, Liste «packing») und «Plan prüfen» auf der Reiseseite (Lücken, knappe Zeiten, lange Etappen; nur Hinweise, nichts wird geändert).
+- «Mit KI beschreiben» im Ortsformular: Beschreibung und Tipps (ohne Öffnungszeiten/Preise), wird ins Feld eingefügt und erst mit Speichern übernommen.

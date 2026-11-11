@@ -60,6 +60,7 @@ async function Content({
       <h1 className="text-2xl font-semibold">Neuer Reiseort</h1>
       <Card>
         <DestinationForm
+          tripId={tripId}
           action={createDestination.bind(null, tripId, position)}
           range={range}
           initial={{ arrival_date: last?.departure_date ?? range.start_date }}

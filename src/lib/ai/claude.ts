@@ -374,3 +374,35 @@ export async function reviewTrip(context: string, creds: Creds, client?: Message
     reviewSchema,
   );
 }
+
+const placeTextSchema = z.object({
+  description: z.string().trim().min(1).max(900),
+  tips: z.array(z.string().trim().min(1).max(200)).max(5).default([]),
+});
+
+/** Kurze Beschreibung mit Tipps zu einem Ort, ohne Öffnungszeiten, Preise oder Buchungsfristen. */
+export async function describePlace(
+  info: { name: string; kind: string; where: string; trip: string; dates: string },
+  creds: Creds,
+  client?: MessagesClient,
+): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
+  const res = await forcedTool(
+    creds,
+    client,
+    `Du schreibst für eine Reiseplanungs-App kurze, sachliche Ortsbeschreibungen über das Werkzeug "describe_place". "description": 3 bis 4 Sätze, was den Ort ausmacht und wofür er sich auf dieser Reise eignet. "tips": 2 bis 4 knappe Tipps (Sehenswertes, Aktivitäten, Hinweise zur Jahreszeit). Nenne keine Öffnungszeiten, Preise, Telefonnummern oder Buchungsfristen, denn die können veraltet sein. Wenn du den Ort nicht sicher kennst, schreibe vorsichtig und allgemein statt zu erfinden. Antworte auf Deutsch.`,
+    `Ort: ${info.name}\nArt: ${info.kind}\nLage: ${info.where || "unbekannt"}\nReise: ${info.trip}\nAufenthalt: ${info.dates || "offen"}`,
+    {
+      name: "describe_place",
+      description: "Beschreibung und Tipps zu einem Ort.",
+      input_schema: {
+        type: "object",
+        properties: { description: { type: "string" }, tips: { type: "array", items: { type: "string" } } },
+        required: ["description", "tips"],
+      },
+    },
+    placeTextSchema,
+  );
+  if (!res.ok) return res;
+  const { description, tips } = res.data;
+  return { ok: true, text: tips.length ? `${description}\n\nTipps:\n${tips.map((t) => `- ${t}`).join("\n")}` : description };
+}
