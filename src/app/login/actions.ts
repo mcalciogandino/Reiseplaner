@@ -32,6 +32,8 @@ export async function sendMagicLink(
   });
 
   if (error) {
+    // Nur serverseitig im Log, nie an den Browser.
+    console.error("Magic link failed:", error.status, error.code, error.message);
     return {
       ok: false,
       message:
