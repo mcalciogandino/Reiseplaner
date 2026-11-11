@@ -56,7 +56,11 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
           </p>
           {!enabled && (
             <p role="status" className="text-sm text-amber-800 dark:text-amber-300">
-              Die KI ist noch nicht eingerichtet: Es fehlt die Variable ANTHROPIC_API_KEY (siehe .env.example).
+              Die KI ist noch nicht eingerichtet:{" "}
+              <Link href="/settings" className="underline">
+                Claude-API-Schlüssel in den Einstellungen hinterlegen
+              </Link>
+              .
             </p>
           )}
           <div>

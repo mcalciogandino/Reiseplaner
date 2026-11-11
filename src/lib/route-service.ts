@@ -10,12 +10,12 @@ const ENDPOINT = "https://api.openrouteservice.org/v2/directions/driving-car/geo
 
 /**
  * Berechnet die Strassenroute zwischen zwei Punkten über OpenRouteService.
- * Nur auf dem Server verwenden: der Schlüssel (ORS_API_KEY) darf nie in den Browser.
+ * Nur auf dem Server verwenden: der Schlüssel (Einstellungen bzw. ORS_API_KEY) darf nie in den Browser.
  */
-export async function fetchRoute(from: Point, to: Point): Promise<RouteOutcome> {
-  const key = process.env.ORS_API_KEY;
+export async function fetchRoute(from: Point, to: Point, apiKey?: string | null): Promise<RouteOutcome> {
+  const key = apiKey ?? process.env.ORS_API_KEY;
   if (!key) {
-    return { ok: false, reason: "no_key", message: "Kein Routen-Schlüssel eingerichtet (ORS_API_KEY)." };
+    return { ok: false, reason: "no_key", message: "Kein Routen-Schlüssel eingerichtet (unter «Einstellungen» hinterlegen)." };
   }
   try {
     const res = await fetch(ENDPOINT, {

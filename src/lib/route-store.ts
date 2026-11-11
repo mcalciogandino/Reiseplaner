@@ -1,4 +1,5 @@
 import { fetchRoute } from "./route-service";
+import { loadSettings } from "./settings";
 import { ROUTABLE_KINDS } from "./routing";
 import type { createClient } from "./supabase/server";
 import type { Transfer } from "./transfers";
@@ -46,7 +47,8 @@ export async function storeRoute(
     return { ok: false, message: "Start oder Ziel hat noch keinen Standort." };
   }
 
-  const res = await fetchRoute(from, to);
+  const { orsKey } = await loadSettings(supabase);
+  const res = await fetchRoute(from, to, orsKey);
   if (!res.ok) {
     if (res.reason !== "failed") await reset();
     return { ok: false, message: res.message };

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
+import { loadSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { AiCapture } from "./ai-capture";
 
@@ -28,13 +29,15 @@ async function Content({ params }: { params: Params }) {
   const { data: trip } = await supabase.from("trips").select("id, name").eq("id", tripId).maybeSingle();
   if (!trip) notFound();
 
+  const settings = await loadSettings(supabase);
+
   return (
     <>
       <Link href={`/trips/${tripId}`} className="inline-flex min-h-11 items-center text-sm underline">
         ← Zurück zur Reise
       </Link>
       <h1 className="text-2xl font-semibold">Mit KI erfassen · {trip.name}</h1>
-      <AiCapture tripId={tripId} enabled={Boolean(process.env.ANTHROPIC_API_KEY)} />
+      <AiCapture tripId={tripId} enabled={Boolean(settings.anthropicKey)} />
     </>
   );
 }

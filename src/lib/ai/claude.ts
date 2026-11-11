@@ -2,7 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { proposalSchema, type Proposal } from "./plan";
 import { SYSTEM_PROMPT, TOOL, TOOL_NAME } from "./prompt";
 
-export const DEFAULT_MODEL = "claude-sonnet-5-5";
+export const NO_KEY_MESSAGE =
+  "Die KI ist noch nicht eingerichtet. Hinterlege deinen Claude-API-Schlüssel unter «Einstellungen».";
 
 export type ProposeResult =
   | { ok: true; proposal: Proposal }
@@ -17,17 +18,17 @@ type MessagesClient = { messages: Pick<Anthropic["messages"], "create"> };
 export async function proposeFromText(
   text: string,
   context: string,
+  creds: { apiKey: string | null; model: string },
   client?: MessagesClient,
 ): Promise<ProposeResult> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!client && !key) {
-    return { ok: false, message: "Die KI ist noch nicht eingerichtet (ANTHROPIC_API_KEY fehlt)." };
+  if (!client && !creds.apiKey) {
+    return { ok: false, message: NO_KEY_MESSAGE };
   }
-  const api = client ?? new Anthropic({ apiKey: key, timeout: 90_000, maxRetries: 1 });
+  const api = client ?? new Anthropic({ apiKey: creds.apiKey!, timeout: 90_000, maxRetries: 1 });
 
   try {
     const res = await api.messages.create({
-      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      model: creds.model,
       max_tokens: 6000,
       system: SYSTEM_PROMPT,
       tools: [TOOL],
@@ -52,7 +53,7 @@ export async function proposeFromText(
   } catch (err) {
     const status = (err as { status?: number })?.status;
     console.error("AI request failed:", status ?? (err instanceof Error ? err.name : "unknown"));
-    if (status === 401) return { ok: false, message: "Der KI-Schlüssel wurde abgelehnt. Prüfe ANTHROPIC_API_KEY." };
+    if (status === 401) return { ok: false, message: "Der KI-Schlüssel wurde abgelehnt. Prüfe ihn unter «Einstellungen»." };
     if (status === 429) return { ok: false, message: "Die KI ist gerade ausgelastet. Versuche es in einer Minute noch einmal." };
     return { ok: false, message: "Die KI ist nicht erreichbar. Versuche es später noch einmal." };
   }

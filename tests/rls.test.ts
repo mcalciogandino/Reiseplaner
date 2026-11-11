@@ -184,6 +184,23 @@ describe("RLS: nicht angemeldet", () => {
   });
 });
 
+describe("Einstellungen (API-Schlüssel)", () => {
+  it("jede Person sieht und ändert nur ihre eigenen Einstellungen", async () => {
+    await as(A, async (q) => {
+      await q(`insert into user_settings (owner_id, anthropic_api_key) values ('${A}', 'sk-ant-geheim')`);
+      expect(await q("select anthropic_api_key from user_settings")).toHaveLength(1);
+      // fremde Zeile anlegen ist verboten
+      await expect(q(`insert into user_settings (owner_id) values ('${B}')`)).rejects.toThrow();
+    });
+    await as(B, async (q) => {
+      expect(await q("select * from user_settings")).toHaveLength(0);
+    });
+  });
+  it("anon hat keinen Zugriff", async () => {
+    await expect(as(null, (q) => q("select * from user_settings"))).rejects.toThrow(/permission denied/);
+  });
+});
+
 describe("Mehrere Reisen", () => {
   it("Besitzer kann weitere Reisen mit Start- und Zielort anlegen", async () => {
     const rows = await as(A, async (q) => {

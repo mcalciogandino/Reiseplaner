@@ -9,6 +9,7 @@ import { proposeFromText } from "@/lib/ai/claude";
 import { planSchema, type Plan, type PlanEndpoint } from "@/lib/ai/plan";
 import { tripContext } from "@/lib/ai/prompt";
 import { storeRoute } from "@/lib/route-store";
+import { loadSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { KIND_LABELS, localToUtcIso, type TransferKind } from "@/lib/transfers";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips";
@@ -68,7 +69,8 @@ export async function proposeEntries(
     })),
   });
 
-  const result = await proposeFromText(text, context);
+  const settings = await loadSettings(supabase);
+  const result = await proposeFromText(text, context, { apiKey: settings.anthropicKey, model: settings.model });
   if (!result.ok) return { text, message: result.message };
 
   const plan = await buildPlan(result.proposal, places, trip, geocode);

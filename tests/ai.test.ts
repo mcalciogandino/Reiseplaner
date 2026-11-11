@@ -114,37 +114,36 @@ describe("planSchema", () => {
   });
 });
 
+const CREDS = { apiKey: "sk-ant-test", model: "claude-sonnet-5-5" };
+
 describe("proposeFromText", () => {
   const fake = (content: unknown[]) =>
     ({ messages: { create: async () => ({ content }) } }) as never;
 
   it("liest den erzwungenen Werkzeugaufruf", async () => {
-    const res = await proposeFromText("Wir fliegen nach Vancouver", "ctx", fake([
+    const res = await proposeFromText("Wir fliegen nach Vancouver", "ctx", CREDS, fake([
       { type: "tool_use", name: TOOL_NAME, input: { summary: "ok", places: [{ ref: "p1", name: "Vancouver", kind: "city" }], transfers: [], questions: [] } },
     ]));
     expect(res.ok && res.proposal.places[0].name).toBe("Vancouver");
   });
 
   it("meldet fehlenden Werkzeugaufruf und ungültige Antworten", async () => {
-    const none = await proposeFromText("text", "ctx", fake([{ type: "text", text: "Hallo" }]));
+    const none = await proposeFromText("text", "ctx", CREDS, fake([{ type: "text", text: "Hallo" }]));
     expect(none.ok).toBe(false);
-    const bad = await proposeFromText("text", "ctx", fake([{ type: "tool_use", name: TOOL_NAME, input: { places: [{ ref: "p1", name: "X", kind: "ufo" }] } }]));
+    const bad = await proposeFromText("text", "ctx", CREDS, fake([{ type: "tool_use", name: TOOL_NAME, input: { places: [{ ref: "p1", name: "X", kind: "ufo" }] } }]));
     expect(bad.ok).toBe(false);
   });
 
   it("übersetzt Fehler der API in verständliche Meldungen", async () => {
     const client = (status: number) => ({ messages: { create: async () => { throw Object.assign(new Error("x"), { status }); } } }) as never;
-    expect((await proposeFromText("t", "c", client(401))) ).toMatchObject({ ok: false, message: expect.stringMatching(/Schlüssel/) });
-    expect((await proposeFromText("t", "c", client(429))) ).toMatchObject({ ok: false, message: expect.stringMatching(/ausgelastet/) });
-    expect((await proposeFromText("t", "c", client(500))) ).toMatchObject({ ok: false, message: expect.stringMatching(/nicht erreichbar/) });
+    expect((await proposeFromText("t", "c", CREDS, client(401))) ).toMatchObject({ ok: false, message: expect.stringMatching(/Schlüssel/) });
+    expect((await proposeFromText("t", "c", CREDS, client(429))) ).toMatchObject({ ok: false, message: expect.stringMatching(/ausgelastet/) });
+    expect((await proposeFromText("t", "c", CREDS, client(500))) ).toMatchObject({ ok: false, message: expect.stringMatching(/nicht erreichbar/) });
   });
 
   it("verlangt einen Schlüssel, wenn kein Client übergeben wird", async () => {
-    const old = process.env.ANTHROPIC_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
-    const res = await proposeFromText("text", "ctx");
-    expect(res).toMatchObject({ ok: false, message: expect.stringMatching(/ANTHROPIC_API_KEY/) });
-    if (old) process.env.ANTHROPIC_API_KEY = old;
+    const res = await proposeFromText("text", "ctx", { apiKey: null, model: "m" });
+    expect(res).toMatchObject({ ok: false, message: expect.stringMatching(/Einstellungen/) });
   });
 });
 
