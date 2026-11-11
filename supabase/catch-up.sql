@@ -81,3 +81,6 @@ grant select, insert, update, delete on user_settings to authenticated;
 -- Checkliste: Notiz und Quelle
 alter table checklist_items add column if not exists notes text;
 alter table checklist_items add column if not exists source_ref text;
+
+-- Tagesplan: Plan B
+alter table day_plan_items add column if not exists plan_b boolean not null default false;

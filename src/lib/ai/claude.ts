@@ -406,3 +406,55 @@ export async function describePlace(
   const { description, tips } = res.data;
   return { ok: true, text: tips.length ? `${description}\n\nTipps:\n${tips.map((t) => `- ${t}`).join("\n")}` : description };
 }
+
+const daySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(150),
+        start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullish(),
+        end_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullish(),
+        description: z.string().trim().max(500).nullish(),
+        plan_b: z.boolean().nullish(),
+      }),
+    )
+    .max(10)
+    .default([]),
+});
+export type DaySuggestion = z.infer<typeof daySchema>["items"][number];
+
+/** Schlägt ein Tagesprogramm vor, mit Puffer und ein bis zwei Ausweichideen (Plan B). */
+export async function suggestDayProgram(context: string, creds: Creds, client?: MessagesClient) {
+  const res = await forcedTool(
+    creds,
+    client,
+    `Du planst für zwei Reisende einen Tag über das Werkzeug "propose_day". Gib 3 bis 6 Programmpunkte mit realistischen Uhrzeiten (HH:MM, 24 Stunden) und Pausen. Berücksichtige Verschiebungen dieses Tages (Fahrten und Flüge) und plane nach Ankunft nur noch wenig. Zusätzlich 1 bis 2 Ausweichideen mit "plan_b": true (für schlechtes Wetter oder gesperrte Strassen), ohne Uhrzeit. Nenne keine Öffnungszeiten, Preise oder Buchungsfristen und erfinde keine Betriebe; wähle bekannte Sehenswürdigkeiten und Aktivitäten der Gegend. Schlage nichts vor, was schon im Plan steht. Antworte auf Deutsch.`,
+    context,
+    {
+      name: "propose_day",
+      description: "Schlägt Programmpunkte für einen Tag vor.",
+      input_schema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                start_time: { type: ["string", "null"], description: "HH:MM" },
+                end_time: { type: ["string", "null"], description: "HH:MM" },
+                description: { type: ["string", "null"] },
+                plan_b: { type: ["boolean", "null"] },
+              },
+              required: ["title"],
+            },
+          },
+        },
+        required: ["items"],
+      },
+    },
+    daySchema,
+  );
+  return res;
+}
