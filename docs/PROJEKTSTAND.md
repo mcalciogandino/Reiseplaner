@@ -57,6 +57,12 @@ Budgetkategorien wurden um `camping`, `passes` und `insurance` erweitert.
 4. **Mail-Vorlage für Magic Link:** Authentication → Email Templates → «Magic Link»: Link auf `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email` ändern. Dann funktioniert der Link auch, wenn er auf einem anderen Gerät geöffnet wird als dem, auf dem er angefordert wurde.
 5. **Vercel:** Repo importieren, Umgebungsvariablen `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` setzen.
 
-## Nächster Schritt: Phase 2
+## Phase 2, Schritt 1: Reisen als eigene Projekte
+
+Jede Reise ist ein eigenes Projekt mit Name, Startort, Zielort, Start- und Enddatum (`trips`, neue Spalten `origin` und `destination`). Die Startseite listet alle Reisen, «Neue Reise» legt eine an, `/trips/[tripId]` zeigt die Übersicht. Alle weiteren Module hängen später unter der jeweiligen Reise.
+
+**Neue Migration einspielen:** `supabase/migrations/20261111120000_trip_origin_destination.sql` im SQL Editor ausführen.
+
+## Nächster Schritt: Phase 2 (Rest)
 
 Reise anlegen (Platzhalterdaten), Reiseorte, Verschiebungen, Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.

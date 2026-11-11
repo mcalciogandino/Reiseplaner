@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -67,7 +67,13 @@ async function as<T>(
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(SUPABASE_STUB);
-  await db.exec(readFileSync(process.env.MIGRATION ?? "supabase/migrations/20261111000000_initial_schema.sql", "utf8"));
+  const files = process.env.MIGRATION
+    ? [process.env.MIGRATION]
+    : readdirSync("supabase/migrations")
+        .filter((f) => f.endsWith(".sql"))
+        .sort()
+        .map((f) => `supabase/migrations/${f}`);
+  for (const file of files) await db.exec(readFileSync(file, "utf8"));
   await db.exec(GRANTS);
   await db.exec(`
     insert into auth.users values ('${A}'), ('${B}');
@@ -175,6 +181,30 @@ describe("RLS: fremder Nutzer", () => {
 describe("RLS: nicht angemeldet", () => {
   it("anon hat keinen Zugriff auf trips", async () => {
     await expect(as(null, (q) => q("select * from trips"))).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe("Mehrere Reisen", () => {
+  it("Besitzer kann weitere Reisen mit Start- und Zielort anlegen", async () => {
+    const rows = await as(A, async (q) => {
+      await q(
+        `insert into trips (name, origin, destination, start_date, end_date, owner_id)
+         values ('Island', 'Zürich', 'Reykjavik', '2028-05-01', '2028-05-10', '${A}')`,
+      );
+      return q("select name, origin, destination from trips order by start_date");
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toMatchObject({ origin: "Zürich", destination: "Reykjavik" });
+  });
+
+  it("fremder Nutzer sieht die weitere Reise nicht", async () => {
+    await db.exec(
+      `insert into trips (name, start_date, end_date, owner_id)
+       values ('Privat', '2028-01-01', '2028-01-02', '${A}')`,
+    );
+    const rows = await as(B, (q) => q("select * from trips"));
+    expect(rows).toHaveLength(0);
+    await db.exec("delete from trips where name = 'Privat'");
   });
 });
 
