@@ -8,6 +8,14 @@ import { DESTINATION_COLUMNS, TIMEZONES, type Destination } from "@/lib/destinat
 import { routeWarnings } from "@/lib/route-warnings";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatRoute, TRIP_COLUMNS, tripDays, type Trip } from "@/lib/trips";
+import {
+  durationMinutes,
+  formatDuration,
+  formatLocal,
+  KIND_LABELS,
+  TRANSFER_COLUMNS,
+  type Transfer,
+} from "@/lib/transfers";
 import { moveDestination } from "./destinations/actions";
 
 const linkButton =
@@ -51,6 +59,15 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     .order("created_at", { ascending: true })
     .returns<Destination[]>();
   const destinations = stops ?? [];
+  const { data: legs } = await supabase
+    .from("transfers")
+    .select(TRANSFER_COLUMNS)
+    .eq("trip_id", tripId)
+    .order("depart_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true })
+    .returns<Transfer[]>();
+  const transfers = legs ?? [];
+  const stopName = new Map(destinations.map((d) => [d.id, d.name]));
   const warnings = routeWarnings(trip, destinations);
 
   return (
@@ -131,9 +148,37 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
         )}
       </section>
 
+      <section className="flex flex-col gap-3" aria-labelledby="verschiebungen">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="verschiebungen" className="text-lg font-semibold">Flüge und Verschiebungen</h2>
+          <Link href={`/trips/${tripId}/transfers/new`} className={linkButton}>
+            Hinzufügen
+          </Link>
+        </div>
+        {transfers.length === 0 ? (
+          <Card>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              Noch nichts erfasst. Trage Flüge, Mietwagen, Fähren und Fahrten zwischen den Orten ein.
+            </p>
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {transfers.map((t) => (
+              <li key={t.id}>
+                <Link href={`/trips/${tripId}/transfers/${t.id}`} className="block">
+                  <Card className="transition-colors hover:border-red-700">
+                    <TransferSummary t={t} stopName={stopName} />
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <Card>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Hier folgen Verschiebungen, Bucket List, Tagesplan und Budget dieser Reise.
+          Hier folgen Bucket List, Tagesplan und Budget dieser Reise.
         </p>
       </Card>
     </>
@@ -192,5 +237,39 @@ function MoveButton({
         {direction === "up" ? "↑" : "↓"}
       </button>
     </form>
+  );
+}
+
+function TransferSummary({ t, stopName }: { t: Transfer; stopName: Map<string, string> }) {
+  const from = (t.from_destination_id && stopName.get(t.from_destination_id)) || t.from_place;
+  const to = (t.to_destination_id && stopName.get(t.to_destination_id)) || t.to_place;
+  const route = [from, to].filter(Boolean).join(" → ");
+  const minutes = durationMinutes(t);
+  const facts = [
+    t.carrier,
+    t.flight_number,
+    minutes !== null && minutes >= 0 ? formatDuration(minutes) : null,
+    t.distance_km !== null ? `${t.distance_km} km` : null,
+    t.booking_ref ? `Buchung ${t.booking_ref}` : null,
+  ].filter(Boolean);
+
+  return (
+    <>
+      <h3 className="font-semibold">
+        {KIND_LABELS[t.kind]}
+        {route && <span className="font-normal"> · {route}</span>}
+      </h3>
+      <div className="mt-1 space-y-0.5 text-sm text-neutral-600 dark:text-neutral-400">
+        {t.depart_at && t.depart_tz ? (
+          <p>Abfahrt {formatLocal(t.depart_at, t.depart_tz)} (Ortszeit)</p>
+        ) : (
+          <p>Abfahrt noch offen</p>
+        )}
+        {t.arrive_at && t.arrive_tz && (
+          <p>Ankunft {formatLocal(t.arrive_at, t.arrive_tz)} (Ortszeit)</p>
+        )}
+        {facts.length > 0 && <p>{facts.join(" · ")}</p>}
+      </div>
+    </>
   );
 }
