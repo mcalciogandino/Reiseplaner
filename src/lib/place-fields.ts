@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { isValidCoord, roundCoord } from "@/lib/geocode";
-import { TIMEZONES } from "@/lib/destinations";
+import { isValidCoord, roundCoord } from "./geocode";
+import { TIMEZONES } from "./destinations";
 
 /** Wert im Auswahlfeld «Reiseort», der «Neuer Ort anlegen …» bedeutet. */
 export const NEW_PLACE = "__new__";
