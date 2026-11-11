@@ -261,3 +261,116 @@ export async function researchChecklist(
     return researchError(err);
   }
 }
+
+// ---------- Allgemeine Hilfen ohne Websuche (Packliste, Reise-Check) ----------
+
+type Tool = { name: string; description: string; input_schema: { type: "object"; properties: Record<string, unknown>; required: string[] } };
+
+/** Ein erzwungener Werkzeugaufruf; die Antwort wird mit zod geprüft. */
+async function forcedTool<T>(
+  creds: Creds,
+  client: MessagesClient | undefined,
+  system: string,
+  user: string,
+  tool: Tool,
+  schema: z.ZodType<T>,
+): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+  if (!client && !creds.apiKey) return { ok: false, message: NO_KEY_MESSAGE };
+  const api = client ?? new Anthropic({ apiKey: creds.apiKey!, timeout: 90_000, maxRetries: 1 });
+  try {
+    const res = await api.messages.create({
+      model: creds.model,
+      max_tokens: 4000,
+      system,
+      tools: [tool],
+      tool_choice: { type: "tool", name: tool.name },
+      messages: [{ role: "user", content: user }],
+    });
+    const block = res.content.find((b) => b.type === "tool_use" && b.name === tool.name);
+    if (!block || block.type !== "tool_use") return { ok: false, message: "Die KI hat keine Antwort geliefert." };
+    const parsed = schema.safeParse(block.input);
+    if (!parsed.success) return { ok: false, message: "Die Antwort der KI war unvollständig. Bitte versuche es noch einmal." };
+    return { ok: true, data: parsed.data };
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    console.error("AI request failed:", status ?? (err instanceof Error ? err.name : "unknown"));
+    if (status === 401) return { ok: false, message: "Der KI-Schlüssel wurde abgelehnt. Prüfe ihn unter «Einstellungen»." };
+    if (status === 429) return { ok: false, message: "Die KI ist gerade ausgelastet. Versuche es in einer Minute noch einmal." };
+    return { ok: false, message: "Die KI ist nicht erreichbar. Versuche es später noch einmal." };
+  }
+}
+
+const packingSchema = z.object({
+  items: z
+    .array(z.object({ title: z.string().trim().min(1).max(200), reason: z.string().trim().max(300).nullish() }))
+    .max(30)
+    .default([]),
+});
+
+/** Packliste aus Route, Jahreszeit und Orten (kein Wetterbericht). */
+export async function suggestPacking(context: string, creds: Creds, client?: MessagesClient) {
+  return forcedTool(
+    creds,
+    client,
+    `Du bist Reiseassistent einer Webanwendung. Erstelle über das Werkzeug "propose_packing" eine Packliste für zwei Personen. Berücksichtige Reisezeit (Jahreszeit), Orte und Art der Ziele (z. B. Camping, Wandern, Stadt). Nenne konkrete Dinge statt Oberbegriffe, höchstens 25 Punkte, Wichtigstes zuerst. Schlage nichts vor, was schon in der Liste steht. "reason" ist ein kurzer Grund, nur wenn er nicht offensichtlich ist. Antworte auf Deutsch.`,
+    context,
+    {
+      name: "propose_packing",
+      description: "Schlägt Packlistenpunkte vor.",
+      input_schema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { title: { type: "string" }, reason: { type: ["string", "null"] } },
+              required: ["title"],
+            },
+          },
+        },
+        required: ["items"],
+      },
+    },
+    packingSchema,
+  );
+}
+
+const reviewSchema = z.object({
+  summary: z.string().trim().max(400).default(""),
+  findings: z
+    .array(z.object({ level: z.enum(["warn", "info"]), text: z.string().trim().min(1).max(400) }))
+    .max(10)
+    .default([]),
+});
+export type TripReview = z.infer<typeof reviewSchema>;
+
+/** Prüft den Reiseplan auf Lücken, knappe Zeiten und lange Etappen. */
+export async function reviewTrip(context: string, creds: Creds, client?: MessagesClient) {
+  return forcedTool(
+    creds,
+    client,
+    `Du bist ein kritischer Reiseberater. Prüfe den Reiseplan über das Werkzeug "review_trip" auf: Lücken (Nächte ohne Ort, Tage ohne Plan), unrealistische Fahr- oder Reisezeiten, zu viele Ortswechsel, Aufenthalte ohne Unterkunft, Daten ausserhalb der Reise, Zeitzonen- und Anschlussprobleme. Beziehe dich nur auf die Angaben im Plan; rate nichts dazu. "warn" für echte Probleme, "info" für Verbesserungsideen. Höchstens 8 Punkte, Wichtigstes zuerst. Ist alles in Ordnung, sage das in der Zusammenfassung und liefere keine Punkte. Antworte auf Deutsch.`,
+    context,
+    {
+      name: "review_trip",
+      description: "Meldet Auffälligkeiten im Reiseplan.",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          findings: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { level: { type: "string", enum: ["warn", "info"] }, text: { type: "string" } },
+              required: ["level", "text"],
+            },
+          },
+        },
+        required: ["summary", "findings"],
+      },
+    },
+    reviewSchema,
+  );
+}

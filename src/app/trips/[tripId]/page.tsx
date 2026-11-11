@@ -5,12 +5,16 @@ import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Timeline } from "@/components/timeline";
+import { ReviewCard } from "./review-card";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { routeWarnings } from "@/lib/route-warnings";
 import { createClient } from "@/lib/supabase/server";
 import { buildTimeline } from "@/lib/timeline";
 import { formatDate, formatRoute, TRIP_COLUMNS, tripDays, type Trip } from "@/lib/trips";
 import { TRANSFER_COLUMNS, type Transfer } from "@/lib/transfers";
+
+// Die KI-Prüfung braucht einige Sekunden.
+export const maxDuration = 120;
 
 const linkButton =
   "inline-flex min-h-11 items-center rounded-lg border border-neutral-300 px-4 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800";
@@ -141,6 +145,8 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} />
         )}
       </section>
+
+      <ReviewCard tripId={tripId} />
 
       <Card>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">

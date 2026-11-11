@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { researchChecklist } from "@/lib/ai/claude";
+import { researchChecklist, suggestPacking } from "@/lib/ai/claude";
 import { tripContext } from "@/lib/ai/prompt";
 import { loadSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +10,7 @@ import { TRIP_COLUMNS, type Trip } from "@/lib/trips";
 
 export type ChecklistState = { message: string } | null;
 export type Suggestion = { title: string; due_date: string | null; reason: string | null; sources: string[] };
-export type SuggestState = { message?: string; items?: Suggestion[] } | null;
+export type SuggestState = { message?: string; items?: Suggestion[]; list?: "prep" | "packing" } | null;
 
 const uuid = z.uuid();
 const itemSchema = z.object({
@@ -80,12 +80,45 @@ export async function suggestItems(tripId: string): Promise<SuggestState> {
   if (!res.ok) return { message: res.message };
   if (res.items.length === 0) return { message: "Die KI hat keine neuen Aufgaben gefunden." };
   return {
+    list: "prep",
     items: res.items.map((i) => ({
       title: i.title,
       due_date: i.due_date ?? null,
       reason: i.reason ?? null,
       sources: i.sources,
     })),
+  };
+}
+
+/** Packliste vorschlagen (ohne Websuche); nichts wird gespeichert. */
+export async function suggestPackingItems(tripId: string): Promise<SuggestState> {
+  if (!uuid.safeParse(tripId).success) return { message: "Ungültige Reise." };
+  const supabase = await createClient();
+  const { data: trip } = await supabase.from("trips").select(TRIP_COLUMNS).eq("id", tripId).maybeSingle<Trip>();
+  if (!trip) return { message: "Reise nicht gefunden." };
+  const [{ data: stops }, { data: existing }] = await Promise.all([
+    supabase
+      .from("destinations")
+      .select("id, name, kind, timezone, lat, lng, arrival_date, departure_date")
+      .eq("trip_id", tripId)
+      .order("sort_order", { ascending: true }),
+    supabase.from("checklist_items").select("title").eq("trip_id", tripId).eq("list", "packing"),
+  ]);
+  const context =
+    tripContext({
+      name: trip.name,
+      start_date: trip.start_date,
+      end_date: trip.end_date,
+      places: ((stops ?? []) as { kind?: string; name: string }[]).map((p) => ({ ...p, name: p.kind ? `${p.name} [${p.kind}]` : p.name })) as never,
+      transfers: [],
+    }) + `\nBereits auf der Packliste:\n${(existing ?? []).map((e) => `- ${e.title}`).join("\n") || "(nichts)"}`;
+  const settings = await loadSettings(supabase);
+  const res = await suggestPacking(context, { apiKey: settings.anthropicKey, model: settings.model });
+  if (!res.ok) return { message: res.message };
+  if (res.data.items.length === 0) return { message: "Die KI hat nichts Neues vorgeschlagen." };
+  return {
+    list: "packing",
+    items: res.data.items.map((i) => ({ title: i.title, due_date: null, reason: i.reason ?? null, sources: [] })),
   };
 }
 
@@ -109,12 +142,13 @@ export async function applySuggestions(tripId: string, _prev: ChecklistState, fd
   }
   const parsed = applySchema.safeParse(raw);
   if (!parsed.success) return { message: "Die Vorschläge sind nicht mehr gültig. Bitte suche erneut." };
+  const list = fd.get("list") === "packing" ? "packing" : "prep";
   const chosen = new Set(fd.getAll("pick").map(String));
   const rows = parsed.data
     .filter((_, i) => chosen.has(String(i)))
     .map((i) => ({
       trip_id: tripId,
-      list: "prep",
+      list,
       title: i.title,
       due_date: i.due_date,
       notes: i.reason,

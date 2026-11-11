@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlan, type GeoHit, type Geocoder, type KnownPlace } from "../src/lib/ai/build-plan";
-import { proposeFromText, researchFromText } from "../src/lib/ai/claude";
+import { proposeFromText, researchFromText, reviewTrip, suggestPacking } from "../src/lib/ai/claude";
 import { planSchema, proposalSchema } from "../src/lib/ai/plan";
 import { TOOL_NAME, tripContext } from "../src/lib/ai/prompt";
 
@@ -246,5 +246,25 @@ describe("Plan mit Quellen", () => {
     const bad = JSON.parse(JSON.stringify(plan));
     bad.places[0].sources = ["javascript:alert(1)"];
     expect(planSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("Packliste und Reise-Check", () => {
+  const CREDS = { apiKey: "sk-ant-test", model: "m" };
+  const reply = (name: string, input: unknown) =>
+    ({ messages: { create: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name, input }] }) } }) as never;
+
+  it("liefert Packlistenpunkte", async () => {
+    const res = await suggestPacking("ctx", CREDS, reply("propose_packing", { items: [{ title: "Regenjacke" }] }));
+    expect(res).toMatchObject({ ok: true, data: { items: [{ title: "Regenjacke" }] } });
+  });
+  it("liefert Befunde des Reise-Checks und lehnt ungültige Stufen ab", async () => {
+    const ok = await reviewTrip("ctx", CREDS, reply("review_trip", { summary: "ok", findings: [{ level: "warn", text: "Lücke" }] }));
+    expect(ok).toMatchObject({ ok: true });
+    const bad = await reviewTrip("ctx", CREDS, reply("review_trip", { findings: [{ level: "x", text: "y" }] }));
+    expect(bad).toMatchObject({ ok: false });
+  });
+  it("verlangt einen Schlüssel", async () => {
+    expect(await suggestPacking("ctx", { apiKey: null, model: "m" })).toMatchObject({ ok: false });
   });
 });

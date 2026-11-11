@@ -11,6 +11,7 @@ import {
   applySuggestions,
   deleteItem,
   suggestItems,
+  suggestPackingItems,
   toggleItem,
   type ChecklistState,
   type SuggestState,
@@ -64,9 +65,9 @@ export function ChecklistView({ tripId, items, today }: { tripId: string; items:
 
       <Card className="flex flex-col gap-3">
         <div>
-          <h2 className="font-semibold">Fristen von der KI</h2>
+          <h2 className="font-semibold">KI-Hilfe</h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            Die KI recherchiert im Web, was für eure Route wann beantragt oder reserviert werden muss. Fristen immer mit der Quelle prüfen.
+            «Fristen» recherchiert im Web, was wann beantragt oder reserviert werden muss (immer mit der Quelle prüfen). «Packliste» schlägt Dinge für Route und Jahreszeit vor.
           </p>
         </div>
         <div>
@@ -77,13 +78,23 @@ export function ChecklistView({ tripId, items, today }: { tripId: string; items:
             onClick={() => startSearch(async () => setSuggest(await suggestItems(tripId)))}
           >
             <Sparkles aria-hidden="true" className="mr-2 size-4" />
-            {searching ? "Die KI recherchiert … (bis zu 1 Min.)" : "Fristen recherchieren"}
+            {searching ? "Die KI arbeitet … (bis zu 1 Min.)" : "Fristen recherchieren"}
+          </Button>{" "}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={searching}
+            onClick={() => startSearch(async () => setSuggest(await suggestPackingItems(tripId)))}
+          >
+            <Sparkles aria-hidden="true" className="mr-2 size-4" />
+            Packliste vorschlagen
           </Button>
         </div>
         {suggest?.message && <p role="alert" className="text-sm text-red-700">{suggest.message}</p>}
         {suggest?.items && (
           <form action={apply} className="flex flex-col gap-3">
             <input type="hidden" name="items" value={JSON.stringify(suggest.items)} />
+            <input type="hidden" name="list" value={suggest.list ?? "prep"} />
             <ul className="flex flex-col gap-2">
               {suggest.items.map((s, i) => (
                 <li key={i} className="flex gap-3 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
@@ -128,7 +139,10 @@ export function ChecklistView({ tripId, items, today }: { tripId: string; items:
                   className="mt-1 size-5 shrink-0 accent-red-700"
                 />
                 <div className="min-w-0 flex-1 text-sm">
-                  <p className={it.done ? "font-medium line-through opacity-60" : "font-medium"}>{it.title}</p>
+                  <p className={it.done ? "font-medium line-through opacity-60" : "font-medium"}>
+                    {it.title}
+                    {it.list === "packing" && <span className="ml-2 text-xs font-normal text-neutral-500">Packliste</span>}
+                  </p>
                   {it.due_date && (
                     <p className={state ? DUE_CLASS[state] : "text-neutral-500"}>
                       Frist {fmt(it.due_date)}
