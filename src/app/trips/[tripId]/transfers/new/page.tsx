@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { getTripRange } from "@/lib/trip-range";
 import { createTransfer } from "../actions";
 import { TransferForm, type StopOption } from "../transfer-form";
 
@@ -23,6 +24,7 @@ async function Content({ params }: { params: Params }) {
   const { tripId } = await params;
   if (!z.uuid().safeParse(tripId).success) notFound();
 
+  const range = await getTripRange(tripId);
   const supabase = await createClient();
   const { data: stops } = await supabase
     .from("destinations")
@@ -40,6 +42,7 @@ async function Content({ params }: { params: Params }) {
       <Card>
         <TransferForm
           action={createTransfer.bind(null, tripId)}
+          range={range}
           stops={stops ?? []}
           submitLabel="Verschiebung hinzufügen"
           cancelHref={`/trips/${tripId}`}

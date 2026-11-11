@@ -7,6 +7,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { TIMEZONES } from "@/lib/destinations";
 import { KIND_LABELS, KINDS } from "@/lib/transfers";
+import { dateTimeBounds } from "@/lib/trips";
 import type { TransferFormState } from "./actions";
 
 export type StopOption = { id: string; name: string; timezone: string | null };
@@ -16,12 +17,14 @@ const selectClass =
 
 export function TransferForm({
   action,
+  range,
   stops,
   initial = {},
   submitLabel,
   cancelHref,
 }: {
   action: (prev: TransferFormState, formData: FormData) => Promise<TransferFormState>;
+  range: { start_date: string; end_date: string };
   stops: StopOption[];
   initial?: Record<string, string>;
   submitLabel: string;
@@ -32,6 +35,9 @@ export function TransferForm({
 
   const [departTz, setDepartTz] = useState(v("depart_tz"));
   const [arriveTz, setArriveTz] = useState(v("arrive_tz"));
+  const [departLocal, setDepartLocal] = useState(v("depart_local"));
+  const departBounds = dateTimeBounds(range, v("depart_local"));
+  const arriveBounds = dateTimeBounds(range, v("arrive_local"));
   const tzOf = (id: string) => stops.find((s) => s.id === id)?.timezone ?? "";
 
   const stopSelect = (name: string, label: string, onPick: (tz: string) => void) => (
@@ -83,7 +89,15 @@ export function TransferForm({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="depart_local" label="Abfahrt (Ortszeit)">
-            <Input id="depart_local" name="depart_local" type="datetime-local" defaultValue={v("depart_local")} />
+            <Input
+              id="depart_local"
+              name="depart_local"
+              type="datetime-local"
+              min={departBounds.min}
+              max={departBounds.max}
+              defaultValue={v("depart_local")}
+              onChange={(e) => setDepartLocal(e.target.value)}
+            />
           </Field>
           {tzSelect("depart_tz", departTz, setDepartTz)}
         </div>
@@ -97,7 +111,14 @@ export function TransferForm({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="arrive_local" label="Ankunft (Ortszeit)">
-            <Input id="arrive_local" name="arrive_local" type="datetime-local" defaultValue={v("arrive_local")} />
+            <Input
+              id="arrive_local"
+              name="arrive_local"
+              type="datetime-local"
+              min={departLocal && departLocal <= arriveBounds.max ? departLocal : arriveBounds.min}
+              max={arriveBounds.max}
+              defaultValue={v("arrive_local")}
+            />
           </Field>
           {tzSelect("arrive_tz", arriveTz, setArriveTz)}
         </div>

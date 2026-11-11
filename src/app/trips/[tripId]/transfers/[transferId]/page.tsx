@@ -5,6 +5,7 @@ import { z } from "zod";
 import { DeleteForm } from "@/components/delete-form";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { getTripRange } from "@/lib/trip-range";
 import { KIND_LABELS, TRANSFER_COLUMNS, utcToLocalInput, type Transfer } from "@/lib/transfers";
 import { deleteTransfer, updateTransfer } from "../actions";
 import { TransferForm, type StopOption } from "../transfer-form";
@@ -25,6 +26,7 @@ async function Content({ params }: { params: Params }) {
   const { tripId, transferId } = await params;
   if (!z.uuid().safeParse(tripId).success || !z.uuid().safeParse(transferId).success) notFound();
 
+  const range = await getTripRange(tripId);
   const supabase = await createClient();
   const { data: t } = await supabase
     .from("transfers")
@@ -67,6 +69,7 @@ async function Content({ params }: { params: Params }) {
       <Card>
         <TransferForm
           action={updateTransfer.bind(null, tripId, transferId)}
+          range={range}
           stops={stops ?? []}
           initial={initial}
           submitLabel="Speichern"

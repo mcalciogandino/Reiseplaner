@@ -6,6 +6,7 @@ import { DeleteForm } from "@/components/delete-form";
 import { Card } from "@/components/ui/card";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { createClient } from "@/lib/supabase/server";
+import { getTripRange } from "@/lib/trip-range";
 import { deleteDestination, updateDestination } from "../actions";
 import { DestinationForm } from "../destination-form";
 
@@ -25,6 +26,7 @@ async function Content({ params }: { params: Params }) {
   const { tripId, destId } = await params;
   if (!z.uuid().safeParse(tripId).success || !z.uuid().safeParse(destId).success) notFound();
 
+  const range = await getTripRange(tripId);
   const supabase = await createClient();
   const { data: dest } = await supabase
     .from("destinations")
@@ -43,6 +45,7 @@ async function Content({ params }: { params: Params }) {
       <Card>
         <DestinationForm
           action={updateDestination.bind(null, tripId, destId)}
+          range={range}
           initial={dest}
           submitLabel="Speichern"
           cancelHref={`/trips/${tripId}`}
