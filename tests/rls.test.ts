@@ -216,6 +216,15 @@ describe("Constraints", () => {
     ).rejects.toThrow(/check/);
   });
 
+  it("verlangt Koordinaten nur zusammen und im gültigen Bereich", async () => {
+    const ins = (cols: string, vals: string) =>
+      db.exec(`insert into destinations (trip_id, name, ${cols}) values ('${TRIP}', 'x', ${vals})`);
+    await expect(ins("lat", "49.28")).rejects.toThrow(/check/);
+    await expect(ins("lat, lng", "95, 10")).rejects.toThrow(/check/);
+    await expect(ins("lat, lng", "49.28, -123.12")).resolves.not.toThrow();
+    await db.exec("delete from destinations where name = 'x'");
+  });
+
   it("erlaubt pro Reise nur einen Tagesplan je Datum", async () => {
     await expect(
       db.exec(`insert into day_plans (trip_id, date) values ('${TRIP}', '2027-07-01')`),

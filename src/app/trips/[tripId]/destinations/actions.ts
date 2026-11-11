@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isValidCoord, roundCoord } from "@/lib/geocode";
 import { createClient } from "@/lib/supabase/server";
 
 export type DestinationFormState = {
@@ -13,6 +14,7 @@ export type DestinationFormState = {
 const FIELDS = [
   "name", "arrival_date", "departure_date", "timezone", "description",
   "lodging_name", "lodging_address", "lodging_checkin", "lodging_booking_ref", "notes",
+  "lat", "lng", "place_label",
 ] as const;
 
 const text = (max: number) =>
@@ -34,7 +36,24 @@ const schema = z
       .transform((v) => v || null),
     lodging_booking_ref: text(100),
     notes: text(2000),
+    lat: z.string().trim(),
+    lng: z.string().trim(),
+    place_label: text(200),
   })
+  .refine((d) => (d.lat === "") === (d.lng === ""), {
+    message: "Der Standort ist unvollständig. Bitte neu suchen.",
+    path: ["lat"],
+  })
+  .refine((d) => d.lat === "" || isValidCoord(Number(d.lat), Number(d.lng)), {
+    message: "Der Standort liegt ausserhalb des gültigen Bereichs.",
+    path: ["lat"],
+  })
+  .transform((d) => ({
+    ...d,
+    lat: d.lat === "" ? null : roundCoord(Number(d.lat)),
+    lng: d.lng === "" ? null : roundCoord(Number(d.lng)),
+    place_label: d.lat === "" ? null : d.place_label,
+  }))
   .refine(
     (d) => !d.arrival_date || !d.departure_date || d.departure_date >= d.arrival_date,
     { message: "Die Abreise darf nicht vor der Ankunft liegen.", path: ["departure_date"] },

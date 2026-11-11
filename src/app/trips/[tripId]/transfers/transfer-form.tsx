@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { TIMEZONES } from "@/lib/destinations";
 import { KIND_LABELS, KINDS } from "@/lib/transfers";
 import { dateTimeBounds } from "@/lib/trips";
@@ -12,8 +13,6 @@ import type { TransferFormState } from "./actions";
 
 export type StopOption = { id: string; name: string; timezone: string | null };
 
-const selectClass =
-  "min-h-11 w-full rounded-lg border border-neutral-300 bg-transparent px-3 text-base dark:border-neutral-700";
 
 export function TransferForm({
   action,
@@ -42,11 +41,10 @@ export function TransferForm({
 
   const stopSelect = (name: string, label: string, onPick: (tz: string) => void) => (
     <Field id={name} label={label}>
-      <select
+      <Select
         id={name}
         name={name}
         defaultValue={v(name)}
-        className={selectClass}
         onChange={(e) => {
           const tz = tzOf(e.target.value);
           if (tz) onPick(tz);
@@ -56,29 +54,29 @@ export function TransferForm({
         {stops.map((s) => (
           <option key={s.id} value={s.id}>{s.name}</option>
         ))}
-      </select>
+      </Select>
     </Field>
   );
 
   const tzSelect = (name: string, value: string, set: (v: string) => void) => (
     <Field id={name} label="Zeitzone">
-      <select id={name} name={name} value={value} onChange={(e) => set(e.target.value)} className={selectClass}>
+      <Select id={name} name={name} value={value} onChange={(e) => set(e.target.value)}>
         <option value="">– wählen –</option>
         {TIMEZONES.map((z) => (
           <option key={z.value} value={z.value}>{z.label}</option>
         ))}
-      </select>
+      </Select>
     </Field>
   );
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <Field id="kind" label="Art">
-        <select id="kind" name="kind" defaultValue={v("kind") || "flight"} className={selectClass}>
+        <Select id="kind" name="kind" defaultValue={v("kind") || "flight"}>
           {KINDS.map((k) => (
             <option key={k} value={k}>{KIND_LABELS[k]}</option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <fieldset className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">

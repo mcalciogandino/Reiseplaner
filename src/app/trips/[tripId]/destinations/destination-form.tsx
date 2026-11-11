@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { LocationPicker } from "@/components/location-picker";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { TIMEZONES } from "@/lib/destinations";
 import { dateBounds } from "@/lib/trips";
 import type { DestinationFormState } from "./actions";
@@ -62,13 +64,18 @@ export function DestinationForm({
         </Field>
       </div>
       <Field id="timezone" label="Zeitzone" hint="Uhrzeiten im Tagesplan gelten in der Ortszeit.">
-        <select id="timezone" name="timezone" defaultValue={v("timezone")} className="min-h-11 w-full rounded-lg border border-neutral-300 bg-transparent px-3 text-base dark:border-neutral-700">
+        <Select id="timezone" name="timezone" defaultValue={v("timezone")}>
           <option value="">– keine Angabe –</option>
           {TIMEZONES.map((z) => (
             <option key={z.value} value={z.value}>{z.label}</option>
           ))}
-        </select>
+        </Select>
       </Field>
+      <LocationPicker
+        key={`${v("lat")},${v("lng")}`}
+        initial={{ lat: v("lat"), lng: v("lng"), label: v("place_label") }}
+        defaultQuery={v("name")}
+      />
       <Field id="description" label="Beschreibung">
         <textarea id="description" name="description" defaultValue={v("description")} className={textarea} />
       </Field>

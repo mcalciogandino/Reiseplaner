@@ -73,6 +73,17 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 
 **Neue Migration einspielen:** `supabase/migrations/20261111180000_transfer_timezones.sql` (Spalten `depart_tz`, `arrive_tz`).
 
+## Phase 2, Schritt 4: Karte (Stufe 1)
+
+- **Adresssuche** beim Reiseort («Standort auf der Karte»): Server-Action `searchPlaces` fragt Nominatim (OpenStreetMap) ab, höchstens 1 Anfrage pro Sekunde, Treffer 24 h zwischengespeichert, nur auf Knopfdruck und nur angemeldet. Koordinaten und Beschriftung landen in `destinations` (`lat`, `lng`, `place_label`).
+- **Karte** unter `/trips/[tripId]/map` (MapLibre, Stil OpenFreeMap ohne Konto, per `NEXT_PUBLIC_MAP_STYLE_URL` austauschbar): nummerierte Orte, Fahrten als Linien, Flüge als Bogen (Grosskreis), Orte ohne Verschiebung gestrichelt.
+- **Google-Maps-Link** bei Fahrten und Zugfahrten (ohne API-Schlüssel, aus den Koordinaten gebaut).
+- Auswahllisten im Dunkelmodus behoben (`color-scheme`, eigene `Select`-Komponente).
+
+**Neue Migration einspielen:** `supabase/migrations/20261111190000_destination_location.sql`.
+
+**Stufe 2 (noch offen):** Strassenrouten mit OpenRouteService (Gratis-Schlüssel nötig, `ORS_API_KEY` nur serverseitig), Koordinaten für freie Orte in Verschiebungen (Flughäfen), Tageskarte.
+
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.

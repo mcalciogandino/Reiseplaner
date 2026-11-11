@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { DESTINATION_COLUMNS, TIMEZONES, type Destination } from "@/lib/destinations";
+import { transferMapsUrl } from "@/lib/map";
 import { routeWarnings } from "@/lib/route-warnings";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatRoute, TRIP_COLUMNS, tripDays, type Trip } from "@/lib/trips";
@@ -77,9 +78,14 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <h1 className="text-2xl font-semibold">{trip.name}</h1>
           <p className="mt-1 text-neutral-600 dark:text-neutral-400">{formatRoute(trip)}</p>
         </div>
-        <Link href={`/trips/${tripId}/edit`} className={linkButton}>
-          Bearbeiten
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link href={`/trips/${tripId}/map`} className={linkButton}>
+            Karte
+          </Link>
+          <Link href={`/trips/${tripId}/edit`} className={linkButton}>
+            Bearbeiten
+          </Link>
+        </div>
       </header>
 
       <Card>
@@ -170,6 +176,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
                     <TransferSummary t={t} stopName={stopName} />
                   </Card>
                 </Link>
+                <MapsLink url={transferMapsUrl(t, destinations)} />
               </li>
             ))}
           </ul>
@@ -271,5 +278,19 @@ function TransferSummary({ t, stopName }: { t: Transfer; stopName: Map<string, s
         {facts.length > 0 && <p>{facts.join(" · ")}</p>}
       </div>
     </>
+  );
+}
+
+function MapsLink({ url }: { url: string | null }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-1 inline-flex min-h-11 items-center px-1 text-sm underline"
+    >
+      In Google Maps öffnen ↗
+    </a>
   );
 }
