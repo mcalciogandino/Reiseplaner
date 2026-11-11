@@ -7,5 +7,8 @@ alter table destinations
 alter table destinations
   add constraint destinations_location_check check (
     (lat is null and lng is null)
-    or (lat between -90 and 90 and lng between -180 and 180)
+    or (
+      lat is not null and lng is not null
+      and lat between -90 and 90 and lng between -180 and 180
+    )
   );
