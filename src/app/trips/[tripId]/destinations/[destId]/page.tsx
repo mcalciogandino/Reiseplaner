@@ -44,6 +44,7 @@ async function Content({ params }: { params: Params }) {
       <h1 className="text-2xl font-semibold">{dest.name}</h1>
       <Card>
         <DestinationForm
+          tripId={tripId}
           action={updateDestination.bind(null, tripId, destId)}
           range={range}
           initial={dest}

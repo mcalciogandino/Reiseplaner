@@ -184,6 +184,23 @@ describe("RLS: nicht angemeldet", () => {
   });
 });
 
+describe("Einstellungen (API-Schlüssel)", () => {
+  it("jede Person sieht und ändert nur ihre eigenen Einstellungen", async () => {
+    await as(A, async (q) => {
+      await q(`insert into user_settings (owner_id, anthropic_api_key) values ('${A}', 'sk-ant-geheim')`);
+      expect(await q("select anthropic_api_key from user_settings")).toHaveLength(1);
+      // fremde Zeile anlegen ist verboten
+      await expect(q(`insert into user_settings (owner_id) values ('${B}')`)).rejects.toThrow();
+    });
+    await as(B, async (q) => {
+      expect(await q("select * from user_settings")).toHaveLength(0);
+    });
+  });
+  it("anon hat keinen Zugriff", async () => {
+    await expect(as(null, (q) => q("select * from user_settings"))).rejects.toThrow(/permission denied/);
+  });
+});
+
 describe("Mehrere Reisen", () => {
   it("Besitzer kann weitere Reisen mit Start- und Zielort anlegen", async () => {
     const rows = await as(A, async (q) => {
@@ -214,6 +231,38 @@ describe("Constraints", () => {
       db.exec(`insert into trips (name, start_date, end_date, owner_id)
                values ('x', '2027-02-02', '2027-02-01', '${A}')`),
     ).rejects.toThrow(/check/);
+  });
+
+  it("verlangt Koordinaten nur zusammen und im gültigen Bereich", async () => {
+    const ins = (cols: string, vals: string) =>
+      db.exec(`insert into destinations (trip_id, name, ${cols}) values ('${TRIP}', 'x', ${vals})`);
+    await expect(ins("lat", "49.28")).rejects.toThrow(/check/);
+    await expect(ins("lat, lng", "95, 10")).rejects.toThrow(/check/);
+    await expect(ins("lat, lng", "49.28, -123.12")).resolves.not.toThrow();
+    await db.exec("delete from destinations where name = 'x'");
+  });
+
+  it("verlangt Koordinaten freier Orte nur paarweise", async () => {
+    const ins = (cols: string, vals: string) =>
+      db.exec(`insert into transfers (trip_id, kind, ${cols}) values ('${TRIP}', 'flight', ${vals})`);
+    await expect(ins("from_lat", "47.4")).rejects.toThrow(/check/);
+    await expect(ins("to_lat, to_lng", "95, 8")).rejects.toThrow(/check/);
+    await expect(ins("from_lat, from_lng", "47.4, 8.5")).resolves.not.toThrow();
+    await db.exec("delete from transfers where from_lat = 47.4");
+  });
+
+  it("catch-up.sql lässt sich auf aktuellem Stand wiederholt ausführen", async () => {
+    const sql = readFileSync("supabase/catch-up.sql", "utf8");
+    await expect(db.exec(sql)).resolves.not.toThrow();
+    await expect(db.exec(sql)).resolves.not.toThrow();
+  });
+
+  it("kennt nur gültige Ortsarten", async () => {
+    const ins = (kind: string) =>
+      db.exec(`insert into destinations (trip_id, name, kind) values ('${TRIP}', 'k', '${kind}')`);
+    await expect(ins("ufo")).rejects.toThrow(/check/);
+    await expect(ins("national_park")).resolves.not.toThrow();
+    await db.exec("delete from destinations where name = 'k'");
   });
 
   it("erlaubt pro Reise nur einen Tagesplan je Datum", async () => {

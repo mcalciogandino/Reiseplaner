@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { getTripRange } from "@/lib/trip-range";
 import { KIND_LABELS, TRANSFER_COLUMNS, utcToLocalInput, type Transfer } from "@/lib/transfers";
-import { deleteTransfer, updateTransfer } from "../actions";
+import { deleteTransfer, recalculateRoute, updateTransfer } from "../actions";
+import { RouteButton } from "../route-button";
 import { TransferForm, type StopOption } from "../transfer-form";
 
 type Params = Promise<{ tripId: string; transferId: string }>;
@@ -38,7 +39,7 @@ async function Content({ params }: { params: Params }) {
 
   const { data: stops } = await supabase
     .from("destinations")
-    .select("id, name, timezone")
+    .select("id, name, timezone, lat, lng")
     .eq("trip_id", tripId)
     .order("sort_order", { ascending: true })
     .returns<StopOption[]>();
@@ -58,6 +59,10 @@ async function Content({ params }: { params: Params }) {
     carrier: t.carrier ?? "",
     flight_number: t.flight_number ?? "",
     booking_ref: t.booking_ref ?? "",
+    from_lat: t.from_lat?.toString() ?? "",
+    from_lng: t.from_lng?.toString() ?? "",
+    to_lat: t.to_lat?.toString() ?? "",
+    to_lng: t.to_lng?.toString() ?? "",
   };
 
   return (
@@ -76,6 +81,14 @@ async function Content({ params }: { params: Params }) {
           cancelHref={`/trips/${tripId}`}
         />
       </Card>
+      {t.kind === "drive" && (
+        <Card>
+          <RouteButton
+            action={recalculateRoute.bind(null, tripId, transferId)}
+            hasRoute={t.route_distance_m !== null}
+          />
+        </Card>
+      )}
       <DeleteForm
         action={deleteTransfer.bind(null, tripId, transferId)}
         label="Verschiebung löschen"

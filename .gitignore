@@ -42,3 +42,6 @@ next-env.d.ts
 
 # env-Vorlage darf ins Repo
 !.env.example
+
+# von scripts/copy-maplibre-worker.mjs erzeugt
+/public/maplibre/

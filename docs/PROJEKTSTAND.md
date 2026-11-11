@@ -73,6 +73,58 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 
 **Neue Migration einspielen:** `supabase/migrations/20261111180000_transfer_timezones.sql` (Spalten `depart_tz`, `arrive_tz`).
 
+## Phase 2, Schritt 4: Karte (Stufe 1)
+
+- **Adresssuche** beim Reiseort («Standort auf der Karte»): Server-Action `searchPlaces` fragt Nominatim (OpenStreetMap) ab, höchstens 1 Anfrage pro Sekunde, Treffer 24 h zwischengespeichert, nur auf Knopfdruck und nur angemeldet. Koordinaten und Beschriftung landen in `destinations` (`lat`, `lng`, `place_label`).
+- **Karte** unter `/trips/[tripId]/map` (MapLibre, Stil OpenFreeMap ohne Konto, per `NEXT_PUBLIC_MAP_STYLE_URL` austauschbar): nummerierte Orte, Fahrten als Linien, Flüge als Bogen (Grosskreis), Orte ohne Verschiebung gestrichelt.
+- **Google-Maps-Link** bei Fahrten und Zugfahrten (ohne API-Schlüssel, aus den Koordinaten gebaut).
+- Auswahllisten im Dunkelmodus behoben (`color-scheme`, eigene `Select`-Komponente).
+
+**Neue Migrationen einspielen:** `20261111190000_destination_location.sql` und `20261111200000_destination_address.sql` (strukturierte Adresse: Strasse, Nr., PLZ, Ort, Provinz, Land; wird bei der Suche ausgefüllt).
+
+**Stufe 2:** Strassenrouten mit OpenRouteService (`ORS_API_KEY`, nur serverseitig, in `.env.local` bzw. den Hosting-Variablen) – siehe Schritt 8. Koordinaten für freie Orte sind in Schritt 6 erledigt. Offen: Tageskarte, Unterkünfte/Aktivitäten als Punkte.
+
+## Phase 2, Schritt 5: Zeitleiste, Ortsarten, Neuer Ort in der Verschiebung
+
+- **Zeitleiste** auf der Reiseseite: Orte, Verschiebungen und freie Orte (Flughäfen …) in zeitlicher Reihenfolge (`src/lib/timeline.ts`). Rechts die Symbolleiste mit «+» zwischen den Symbolen: Ort oder Verschiebung an dieser Stelle einfügen (Vorbelegung Von/Nach bzw. Einfügeposition in der Route).
+- **Ortsarten:** Stadt, Dorf, Campingplatz, Nationalpark, Ausflugsziel, Sonstiges.
+- **Neuer Ort direkt in der Verschiebung** («＋ Neuer Ort anlegen …» bei Von/Nach).
+- Neue Migration: `20261111210000_destination_kind.sql` (zusätzlich zu `…190000_destination_location` und `…200000_destination_address`).
+
+## Phase 2, Schritt 6: Schätzung, Zeitzone aus dem Ort, 24-Stunden-Zeit
+
+- **Schätzung** (`src/lib/estimate.ts`): Distanz, Dauer und Ankunft aus Verkehrsmittel und Luftlinie zwischen Start und Ziel (Flug 800 km/h + 45 min, Auto 75 km/h bei Faktor 1,3, Zug 90 km/h bei 1,25, Fähre 30 km/h). Alle Werte lassen sich überschreiben; «Neu schätzen» setzt zurück.
+- **Freie Orte mit Suche** (Flughafen, Bahnhof): Koordinaten in `transfers.from_lat/from_lng/to_lat/to_lng`. Migration: `20261111220000_transfer_coordinates.sql`.
+- **Zeitzone aus dem Ort**: `tz-lookup` bestimmt die IANA-Zone serverseitig aus den Koordinaten des Suchtreffers; beliebige gültige Zonen sind erlaubt, nicht nur die Liste.
+- **Uhrzeiten im 24-Stunden-Format** (`DateTimeField`, `TimeInput`), «+»-Menü der Zeitleiste schliesst sich (`AddMenu`).
+
+## Phase 2, Schritt 7: mehr Ortsarten, tippbare Auswahl, Tage in der Zeitleiste
+
+- **Ortsarten** erweitert auf rund 40 in Gruppen (Orte, Unterkunft, Natur, Verkehr, Ausflüge, Essen und Einkaufen, Sonstiges). Migration: `20261111230000_destination_kinds_more.sql`.
+- **Tippbares Auswahlfeld** (`Combobox`, wie die Google-Suche, Liste anklickbar, Pfeiltasten/Enter) für Ortsart, Reiseort bei Von/Nach und Zeitzone; mehr Zeitzonen in der Liste.
+- **Zeitleiste mit Tagen:** waagrechte Linie und Überschrift «Tag 1, Tag 2 …» (ab Reisestart, Datum in Ortszeit) vor dem ersten Eintrag jedes Tages.
+
+## Phase 2, Schritt 8: Strassenrouten (Karte, Stufe 2)
+
+- Beim Speichern einer **Autofahrt** mit Start- und Zielstandort wird die Strassenroute bei OpenRouteService berechnet und in `transfers.route_geojson` (plus Strecke und Fahrzeit) gespeichert (`src/lib/route-service.ts`, `routing.ts`). Schlägt der Dienst fehl, wird die Fahrt trotzdem gespeichert.
+- Auf der Bearbeitungsseite der Fahrt: «Route berechnen / neu berechnen». Die Karte zeichnet gespeicherte Routen statt gerader Linien; die Zeitleiste zeigt Strecke und Fahrzeit der Route.
+- Neue Migration: `20261111240000_transfer_route.sql`. Neue Variable: `ORS_API_KEY` (nie ins Repository).
+
+## Phase 3 (Anfang): KI-Erfassung «Mit KI erfassen»
+
+- Seite `/trips/[tripId]/ai`: Text frei oder aus einer Buchungsbestätigung einfügen → Claude (Tool Use, `src/lib/ai/`) schlägt Orte und Verschiebungen vor → die App sucht Standorte und Zeitzonen, schätzt Dauer/Distanz/Ankunft (`build-plan.ts`) → Vorschau mit Auswahl und Warnungen → erst «Übernehmen» speichert (mit `source = 'ai'`, bei Fehlern wird alles zurückgenommen).
+- Der Plan wird beim Speichern erneut mit Zod geprüft, nie blind aus dem Browser übernommen; Verweise auf Orte anderer Reisen werden verworfen.
+- Variablen: `ANTHROPIC_API_KEY` (nur Server), optional `AI_MODEL` (Standard `claude-sonnet-5-5`). Ohne Schlüssel zeigt die Seite einen Hinweis.
+- Noch offen: PDF-/Bild-Upload von Bestätigungen, Websuche, Chat mit Verlauf, Aktivitäten/Budget per KI, «Neu von der KI» im Dashboard.
+
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
+
+## Phase 3: Einstellungen und KI-Recherche
+- `/settings`: Claude-API-Schlüssel, OpenRouteService-Schlüssel und Modell werden in `user_settings` gespeichert (RLS: nur die eigene Zeile; Schlüssel nie an den Browser zurückgegeben, nur maskiert angezeigt). Ohne gespeicherten Wert gelten weiterhin die Umgebungsvariablen. Migration `20261111250000_user_settings.sql` (auch in `catch-up.sql`).
+- KI-Seite hat zwei Modi: «Eintragen» (aus Text) und «Vorschläge suchen» (Websuche `web_search_20250305`, danach erzwungener Werkzeugaufruf). Vorschläge enthalten Begründung und Quellen (nur tatsächlich gefundene Adressen), nichts ist vorausgewählt; beim Speichern landen Begründung als Beschreibung und Quellen in den Notizen.
+- Voraussetzung: «Web search» muss in der Anthropic-Console aktiviert sein.
+- Checkliste `/trips/[id]/checklist` (Backlog A1): Aufgaben mit Frist, abhakbar; «Fristen recherchieren» lässt die KI per Websuche Fristen/Reservierungen für die Route finden (Auswahl, Quelle, nichts vorausgewählt). Migration `20261111260000_checklist_extras.sql` (notes, source_ref).
+- Weitere KI-Helfer: «Packliste vorschlagen» (Checkliste, Backlog B1; Auswahl, Liste «packing») und «Plan prüfen» auf der Reiseseite (Lücken, knappe Zeiten, lange Etappen; nur Hinweise, nichts wird geändert).
+- «Mit KI beschreiben» im Ortsformular: Beschreibung und Tipps (ohne Öffnungszeiten/Preise), wird ins Feld eingefügt und erst mit Speichern übernommen.

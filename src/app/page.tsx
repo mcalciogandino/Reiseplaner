@@ -71,11 +71,19 @@ async function TripList() {
           ))}
         </ul>
       )}
-      <form action={logout}>
-        <Button variant="outline" type="submit">
-          Abmelden
-        </Button>
-      </form>
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/settings"
+          className="inline-flex min-h-11 items-center rounded-lg border border-neutral-300 px-4 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        >
+          Einstellungen
+        </Link>
+        <form action={logout}>
+          <Button variant="outline" type="submit">
+            Abmelden
+          </Button>
+        </form>
+      </div>
     </>
   );
 }

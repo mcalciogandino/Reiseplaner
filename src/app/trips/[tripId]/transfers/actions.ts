@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { TIMEZONES } from "@/lib/destinations";
 import { createClient } from "@/lib/supabase/server";
-import { KINDS, localToUtcIso } from "@/lib/transfers";
+import { isValidCoord, roundCoord } from "@/lib/geocode";
+import { storeRoute } from "@/lib/route-store";
+import { isValidTimeZone } from "@/lib/timezone";
+import { locationSchema, NEW_PLACE, NEW_PLACE_KEYS, newPlaceBaseSchema } from "@/lib/place-fields";
+import { KINDS, localToUtcIso, TRANSFER_COLUMNS, type Transfer } from "@/lib/transfers";
 
 export type TransferFormState = {
   message: string;
@@ -16,9 +19,10 @@ const FIELDS = [
   "kind", "from_destination_id", "to_destination_id", "from_place", "to_place",
   "depart_local", "depart_tz", "arrive_local", "arrive_tz",
   "duration_min", "distance_km", "carrier", "flight_number", "booking_ref",
-] as const;
+  "from_lat", "from_lng", "to_lat", "to_lng",
+  ...(["from", "to"] as const).flatMap((side) => NEW_PLACE_KEYS.map((k) => `${side}_new_${k}`)),
+];
 
-const zones = TIMEZONES.map((t) => t.value) as string[];
 const text = (max: number) =>
   z.string().trim().max(max, `Maximal ${max} Zeichen.`).transform((v) => v || null);
 const optUuid = z.union([z.literal(""), z.uuid()]).transform((v) => v || null);
@@ -56,14 +60,25 @@ const schema = z
     carrier: text(100),
     flight_number: text(30),
     booking_ref: text(100),
+    from_lat: z.string().trim(),
+    from_lng: z.string().trim(),
+    to_lat: z.string().trim(),
+    to_lng: z.string().trim(),
   })
   .superRefine((d, ctx) => {
     for (const [local, tz, label] of [
       [d.depart_local, d.depart_tz, "Abfahrt"],
       [d.arrive_local, d.arrive_tz, "Ankunft"],
     ] as const) {
-      if (local && !zones.includes(tz)) {
+      if (local && !isValidTimeZone(tz)) {
         ctx.addIssue({ code: "custom", message: `${label}: bitte eine Zeitzone wählen.` });
+      }
+    }
+  })
+  .superRefine((d, ctx) => {
+    for (const [lat, lng] of [[d.from_lat, d.from_lng], [d.to_lat, d.to_lng]] as const) {
+      if ((lat === "") !== (lng === "") || (lat !== "" && !isValidCoord(Number(lat), Number(lng)))) {
+        ctx.addIssue({ code: "custom", message: "Der Standort ist unvollständig. Bitte neu suchen." });
       }
     }
   })
@@ -73,6 +88,11 @@ const schema = z
     to_destination_id: d.to_destination_id,
     from_place: d.from_place,
     to_place: d.to_place,
+    // Koordinaten gelten nur für freie Orte (ohne Reiseort) mit Namen.
+    from_lat: d.from_place && !d.from_destination_id && d.from_lat !== "" ? roundCoord(Number(d.from_lat)) : null,
+    from_lng: d.from_place && !d.from_destination_id && d.from_lng !== "" ? roundCoord(Number(d.from_lng)) : null,
+    to_lat: d.to_place && !d.to_destination_id && d.to_lat !== "" ? roundCoord(Number(d.to_lat)) : null,
+    to_lng: d.to_place && !d.to_destination_id && d.to_lng !== "" ? roundCoord(Number(d.to_lng)) : null,
     depart_at: d.depart_local ? localToUtcIso(d.depart_local, d.depart_tz) : null,
     depart_tz: d.depart_local ? d.depart_tz : null,
     arrive_at: d.arrive_local ? localToUtcIso(d.arrive_local, d.arrive_tz) : null,
@@ -94,22 +114,144 @@ function read(formData: FormData) {
   return Object.fromEntries(FIELDS.map((k) => [k, String(formData.get(k) ?? "")]));
 }
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+type Side = "from" | "to";
+
+/** Prüft die Angaben eines neuen Ortes; gibt die Zeile oder eine Fehlermeldung zurück. */
+function parseNewPlace(values: Record<string, string>, side: Side) {
+  const get = (k: string) => values[`${side}_new_${k}`] ?? "";
+  const base = newPlaceBaseSchema.safeParse({
+    name: get("name"), kind: get("kind") || "city", timezone: get("timezone"), lodging_name: get("lodging_name"),
+  });
+  if (!base.success) return { error: base.error.issues[0].message };
+  const loc = locationSchema.safeParse(
+    Object.fromEntries(NEW_PLACE_KEYS.filter((k) => !["name", "kind", "timezone", "lodging_name"].includes(k)).map((k) => [k, get(k)])),
+  );
+  if (!loc.success) return { error: loc.error.issues[0].message };
+  return { row: { ...base.data, ...loc.data } };
+}
+
+/**
+ * Legt die neuen Orte an (Auswahl «Neuer Ort anlegen …») und liefert deren IDs.
+ * Ankunft bzw. Abreise des Ortes werden aus der Verschiebung übernommen.
+ */
+async function createNewPlaces(
+  supabase: Supabase,
+  tripId: string,
+  values: Record<string, string>,
+  rows: Partial<Record<Side, NonNullable<ReturnType<typeof parseNewPlace>["row"]>>>,
+) {
+  const { data: last } = await supabase
+    .from("destinations")
+    .select("sort_order")
+    .eq("trip_id", tripId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let order = (last?.sort_order ?? -1) + 1;
+
+  const ids: Partial<Record<Side, string>> = {};
+  for (const side of ["from", "to"] as const) {
+    const row = rows[side];
+    if (!row) continue;
+    const dateOf = (local: string) => (local ? local.slice(0, 10) : null);
+    const { data, error } = await supabase
+      .from("destinations")
+      .insert({
+        ...row,
+        trip_id: tripId,
+        sort_order: order++,
+        arrival_date: side === "to" ? dateOf(values.arrive_local) : null,
+        departure_date: side === "from" ? dateOf(values.depart_local) : null,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      console.error("createNewPlaces failed:", error?.code, error?.message);
+      await supabase.from("destinations").delete().in("id", Object.values(ids));
+      return null;
+    }
+    ids[side] = data.id as string;
+  }
+  return ids;
+}
+
+/** Wertet «Neuer Ort anlegen …» aus: Fehlermeldung oder die zu speichernden Daten. */
+async function resolvePlaces(
+  supabase: Supabase,
+  tripId: string,
+  values: Record<string, string>,
+) {
+  const cleaned = { ...values };
+  const rows: Partial<Record<Side, NonNullable<ReturnType<typeof parseNewPlace>["row"]>>> = {};
+  for (const side of ["from", "to"] as const) {
+    if (values[`${side}_destination_id`] !== NEW_PLACE) continue;
+    const res = parseNewPlace(values, side);
+    if (res.error || !res.row) return { message: res.error ?? "Ungültiger neuer Ort." };
+    rows[side] = res.row;
+    cleaned[`${side}_destination_id`] = "";
+    cleaned[`${side}_place`] = "";
+  }
+  const parsed = schema.safeParse(cleaned);
+  if (!parsed.success) return { message: parsed.error.issues[0].message };
+
+  const created = Object.keys(rows).length ? await createNewPlaces(supabase, tripId, values, rows) : {};
+  if (!created) return { message: "Der neue Ort konnte nicht gespeichert werden." };
+  const data = {
+    ...parsed.data,
+    from_destination_id: created.from ?? parsed.data.from_destination_id,
+    to_destination_id: created.to ?? parsed.data.to_destination_id,
+  };
+  return { data, createdIds: Object.values(created) as string[] };
+}
+
+
+export type RouteState = { ok: boolean; message: string } | null;
+
+/** Knopf «Route neu berechnen» auf der Bearbeitungsseite. */
+export async function recalculateRoute(
+  tripId: string,
+  transferId: string,
+): Promise<RouteState> {
+  if (!z.uuid().safeParse(tripId).success || !z.uuid().safeParse(transferId).success) {
+    return { ok: false, message: "Ungültige Verschiebung." };
+  }
+  const supabase = await createClient();
+  const { data: t } = await supabase
+    .from("transfers")
+    .select(TRANSFER_COLUMNS)
+    .eq("id", transferId)
+    .eq("trip_id", tripId)
+    .maybeSingle<Transfer>();
+  if (!t) return { ok: false, message: "Verschiebung nicht gefunden." };
+  const result = await storeRoute(supabase, tripId, transferId, t);
+  revalidatePath("/", "layout");
+  return result;
+}
+
 export async function createTransfer(
   tripId: string,
   _prev: TransferFormState,
   formData: FormData,
 ): Promise<TransferFormState> {
   const values = read(formData);
-  const parsed = schema.safeParse(values);
-  if (!parsed.success) return { message: parsed.error.issues[0].message, values };
   if (!uuid.safeParse(tripId).success) return { message: "Ungültige Reise.", values };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("transfers").insert({ ...parsed.data, trip_id: tripId });
-  if (error) {
-    console.error("createTransfer failed:", error.code, error.message);
+  const resolved = await resolvePlaces(supabase, tripId, values);
+  if (!resolved.data) return { message: resolved.message ?? "Ungültige Eingabe.", values };
+
+  const { data: created, error } = await supabase
+    .from("transfers")
+    .insert({ ...resolved.data, trip_id: tripId })
+    .select("id")
+    .single();
+  if (error || !created) {
+    console.error("createTransfer failed:", error?.code, error?.message);
+    if (resolved.createdIds.length) await supabase.from("destinations").delete().in("id", resolved.createdIds);
     return { message: "Die Verschiebung konnte nicht gespeichert werden.", values };
   }
+  await storeRoute(supabase, tripId, created.id as string, resolved.data);
   revalidatePath("/", "layout");
   redirect(`/trips/${tripId}`);
 }
@@ -121,23 +263,26 @@ export async function updateTransfer(
   formData: FormData,
 ): Promise<TransferFormState> {
   const values = read(formData);
-  const parsed = schema.safeParse(values);
-  if (!parsed.success) return { message: parsed.error.issues[0].message, values };
   if (!uuid.safeParse(tripId).success || !uuid.safeParse(transferId).success) {
     return { message: "Ungültige Verschiebung.", values };
   }
 
   const supabase = await createClient();
+  const resolved = await resolvePlaces(supabase, tripId, values);
+  if (!resolved.data) return { message: resolved.message ?? "Ungültige Eingabe.", values };
+
   const { data, error } = await supabase
     .from("transfers")
-    .update(parsed.data)
+    .update(resolved.data)
     .eq("id", transferId)
     .eq("trip_id", tripId)
     .select("id");
   if (error || !data?.length) {
     console.error("updateTransfer failed:", error?.code, error?.message);
+    if (resolved.createdIds.length) await supabase.from("destinations").delete().in("id", resolved.createdIds);
     return { message: "Die Verschiebung konnte nicht gespeichert werden.", values };
   }
+  await storeRoute(supabase, tripId, transferId, resolved.data);
   revalidatePath("/", "layout");
   redirect(`/trips/${tripId}`);
 }
