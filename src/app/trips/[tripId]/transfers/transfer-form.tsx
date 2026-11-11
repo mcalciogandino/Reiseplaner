@@ -5,7 +5,10 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { LocationPicker } from "@/components/location-picker";
 import { Select } from "@/components/ui/select";
+import { EMPTY_ADDRESS } from "@/lib/geocode";
+import { NEW_PLACE } from "@/lib/place-fields";
 import { TIMEZONES } from "@/lib/destinations";
 import { KIND_LABELS, KINDS } from "@/lib/transfers";
 import { dateTimeBounds } from "@/lib/trips";
@@ -38,25 +41,86 @@ export function TransferForm({
   const departBounds = dateTimeBounds(range, v("depart_local"));
   const arriveBounds = dateTimeBounds(range, v("arrive_local"));
   const tzOf = (id: string) => stops.find((s) => s.id === id)?.timezone ?? "";
+  const [fromSel, setFromSel] = useState(v("from_destination_id"));
+  const [toSel, setToSel] = useState(v("to_destination_id"));
 
-  const stopSelect = (name: string, label: string, onPick: (tz: string) => void) => (
+  const stopSelect = (
+    name: string,
+    label: string,
+    value: string,
+    setValue: (v: string) => void,
+    onPick: (tz: string) => void,
+  ) => (
     <Field id={name} label={label}>
       <Select
         id={name}
         name={name}
-        defaultValue={v(name)}
+        value={value}
         onChange={(e) => {
+          setValue(e.target.value);
           const tz = tzOf(e.target.value);
           if (tz) onPick(tz);
         }}
       >
-        <option value="">– anderer Ort –</option>
+        <option value="">– keiner (freier Ort) –</option>
         {stops.map((s) => (
           <option key={s.id} value={s.id}>{s.name}</option>
         ))}
+        <option value={NEW_PLACE}>＋ Neuer Ort anlegen …</option>
       </Select>
     </Field>
   );
+
+  /** Angaben zu einem Ort, der mit der Verschiebung zusammen angelegt wird. */
+  const newPlace = (side: "from" | "to", onTimezone: (tz: string) => void) => {
+    const p = `${side}_new_`;
+    return (
+      <div className="flex flex-col gap-4 rounded-lg bg-neutral-100 p-4 dark:bg-neutral-900">
+        <p className="text-sm font-medium">Neuer Ort</p>
+        <Field id={`${p}name`} label="Name">
+          <Input id={`${p}name`} name={`${p}name`} required defaultValue={v(`${p}name`)} placeholder="z. B. Whistler" />
+        </Field>
+        <Field id={`${p}timezone`} label="Zeitzone" hint="Gilt auch für die Uhrzeit dieser Verschiebung.">
+          <Select
+            id={`${p}timezone`}
+            name={`${p}timezone`}
+            defaultValue={v(`${p}timezone`)}
+            onChange={(e) => e.target.value && onTimezone(e.target.value)}
+          >
+            <option value="">– keine Angabe –</option>
+            {TIMEZONES.map((z) => (
+              <option key={z.value} value={z.value}>{z.label}</option>
+            ))}
+          </Select>
+        </Field>
+        <LocationPicker
+          prefix={p}
+          key={`${v(`${p}lat`)},${v(`${p}lng`)},${v(`${p}addr_street`)}`}
+          defaultQuery={v(`${p}name`)}
+          initial={{
+            lat: v(`${p}lat`),
+            lng: v(`${p}lng`),
+            label: v(`${p}place_label`),
+            address: {
+              ...EMPTY_ADDRESS,
+              street: v(`${p}addr_street`),
+              house_number: v(`${p}addr_house_number`),
+              postcode: v(`${p}addr_postcode`),
+              city: v(`${p}addr_city`),
+              region: v(`${p}addr_region`),
+              country: v(`${p}addr_country`),
+            },
+          }}
+        />
+        <Field id={`${p}lodging_name`} label="Unterkunft (optional)" hint="Hotel, Campingplatz …">
+          <Input id={`${p}lodging_name`} name={`${p}lodging_name`} defaultValue={v(`${p}lodging_name`)} />
+        </Field>
+        <p className="text-xs text-neutral-500">
+          {side === "from" ? "Die Abreise" : "Die Ankunft"} dieses Ortes wird aus dem Datum der Verschiebung übernommen.
+        </p>
+      </div>
+    );
+  };
 
   const tzSelect = (name: string, value: string, set: (v: string) => void) => (
     <Field id={name} label="Zeitzone">
@@ -81,10 +145,14 @@ export function TransferForm({
 
       <fieldset className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <legend className="px-1 text-sm font-medium">Von</legend>
-        {stopSelect("from_destination_id", "Reiseort", setDepartTz)}
-        <Field id="from_place" label="oder freier Ort" hint="z. B. Flughafen Zürich">
-          <Input id="from_place" name="from_place" defaultValue={v("from_place")} />
-        </Field>
+        {stopSelect("from_destination_id", "Reiseort", fromSel, setFromSel, setDepartTz)}
+        {fromSel === NEW_PLACE ? (
+          newPlace("from", setDepartTz)
+        ) : (
+          <Field id="from_place" label="oder freier Ort" hint="z. B. Flughafen Zürich">
+            <Input id="from_place" name="from_place" defaultValue={v("from_place")} />
+          </Field>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="depart_local" label="Abfahrt (Ortszeit)">
             <Input
@@ -103,10 +171,14 @@ export function TransferForm({
 
       <fieldset className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <legend className="px-1 text-sm font-medium">Nach</legend>
-        {stopSelect("to_destination_id", "Reiseort", setArriveTz)}
-        <Field id="to_place" label="oder freier Ort" hint="z. B. Flughafen Vancouver">
-          <Input id="to_place" name="to_place" defaultValue={v("to_place")} />
-        </Field>
+        {stopSelect("to_destination_id", "Reiseort", toSel, setToSel, setArriveTz)}
+        {toSel === NEW_PLACE ? (
+          newPlace("to", setArriveTz)
+        ) : (
+          <Field id="to_place" label="oder freier Ort" hint="z. B. Flughafen Vancouver">
+            <Input id="to_place" name="to_place" defaultValue={v("to_place")} />
+          </Field>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="arrive_local" label="Ankunft (Ortszeit)">
             <Input
