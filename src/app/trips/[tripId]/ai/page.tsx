@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AiCapture } from "./ai-capture";
 
 // Die KI und die Standortsuche brauchen bei längeren Texten einige Sekunden.
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 type Params = Promise<{ tripId: string }>;
 

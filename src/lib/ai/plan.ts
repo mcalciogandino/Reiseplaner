@@ -22,6 +22,9 @@ const proposedPlace = z.object({
   lodging_checkin: time.nullish(),
   description: z.string().trim().max(2000).nullish(),
   notes: z.string().trim().max(2000).nullish(),
+  /** Nur im Suchmodus: warum der Ort empfohlen wird, und Quellen (Web-Adressen). */
+  reason: z.string().trim().max(600).nullish(),
+  sources: z.array(z.string().max(500)).max(5).nullish(),
 });
 
 const proposedTransfer = z.object({
@@ -72,6 +75,8 @@ export const planPlaceSchema = z.object({
   lodging_checkin: time.nullable(),
   description: nullableText(2000),
   notes: nullableText(2000),
+  reason: nullableText(600).default(null),
+  sources: z.array(z.url().max(500).refine((u) => /^https?:\/\//i.test(u), "Nur http(s)")).max(3).default([]),
   warnings: z.array(z.string().max(300)).max(10),
 });
 export type PlanPlace = z.infer<typeof planPlaceSchema>;
@@ -108,6 +113,8 @@ export const planTransferSchema = z.object({
 export type PlanTransfer = z.infer<typeof planTransferSchema>;
 
 export const planSchema = z.object({
+  /** capture: aus Text erfasst (vorausgewählt); search: Recherche-Vorschläge (nichts vorausgewählt). */
+  mode: z.enum(["capture", "search"]).default("capture"),
   summary: z.string().max(1000),
   places: z.array(planPlaceSchema).max(30),
   transfers: z.array(planTransferSchema).max(40),

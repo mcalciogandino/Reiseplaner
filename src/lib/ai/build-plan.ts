@@ -22,6 +22,19 @@ export type GeoHit = {
 export type Geocoder = (query: string) => Promise<GeoHit | null>;
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+/** Nur echte http(s)-Adressen, ohne Doppelte. */
+function webUrls(list: readonly string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const raw of list ?? []) {
+    try {
+      const u = new URL(raw.trim());
+      if ((u.protocol === "http:" || u.protocol === "https:") && !out.includes(u.href)) out.push(u.href);
+    } catch {
+      /* ungültig: ignorieren */
+    }
+  }
+  return out;
+}
 const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
 /**
@@ -72,6 +85,8 @@ export async function buildPlan(
       lodging_checkin: p.lodging_checkin ?? null,
       description: orNull(p.description),
       notes: orNull(p.notes),
+      reason: orNull(p.reason),
+      sources: webUrls(p.sources).slice(0, 3),
       warnings,
     });
   }
@@ -174,5 +189,5 @@ export async function buildPlan(
     });
   }
 
-  return { summary: proposal.summary, places, transfers, questions: proposal.questions };
+  return { mode: "capture", summary: proposal.summary, places, transfers, questions: proposal.questions };
 }

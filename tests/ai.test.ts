@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlan, type GeoHit, type Geocoder, type KnownPlace } from "../src/lib/ai/build-plan";
-import { proposeFromText } from "../src/lib/ai/claude";
+import { proposeFromText, researchFromText } from "../src/lib/ai/claude";
 import { planSchema, proposalSchema } from "../src/lib/ai/plan";
 import { TOOL_NAME, tripContext } from "../src/lib/ai/prompt";
 
@@ -156,5 +156,95 @@ describe("tripContext", () => {
     });
     expect(c).toContain("Basel (ID abc)");
     expect(c).toContain("noch keine");
+  });
+});
+
+describe("researchFromText (Websuche)", () => {
+  const CREDS = { apiKey: "sk-ant-test", model: "claude-sonnet-5-5" };
+  const searchResult = {
+    stop_reason: "end_turn",
+    content: [
+      { type: "web_search_tool_result", content: [{ type: "web_search_result", url: "https://example.com/camp" }] },
+      { type: "text", text: "Camp Eins, am See, https://example.com/camp" },
+    ],
+  };
+  const extraction = {
+    stop_reason: "tool_use",
+    content: [
+      {
+        type: "tool_use",
+        name: TOOL_NAME,
+        input: {
+          summary: "Ein Campingplatz",
+          places: [
+            {
+              ref: "p1",
+              name: "Camp Eins",
+              kind: "camping",
+              reason: "Am See.",
+              sources: ["https://example.com/camp", "https://erfunden.example/x"],
+            },
+          ],
+          transfers: [],
+          questions: [],
+        },
+      },
+    ],
+  };
+  const fake = (replies: unknown[]) => {
+    const calls: Record<string, unknown>[] = [];
+    return {
+      calls,
+      client: {
+        messages: {
+          create: async (args: Record<string, unknown>) => {
+            calls.push(JSON.parse(JSON.stringify(args)));
+            return replies.shift();
+          },
+        },
+      } as never,
+    };
+  };
+
+  it("sucht, setzt bei pause_turn fort und behält nur tatsächlich gefundene Quellen", async () => {
+    const pause = { stop_reason: "pause_turn", content: [{ type: "text", text: "Zwischenstand" }] };
+    const { client, calls } = fake([pause, searchResult, extraction]);
+    const res = await researchFromText("Campingplätze am See", "ctx", CREDS, client);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.proposal.places[0].sources).toEqual(["https://example.com/camp"]);
+    expect(calls).toHaveLength(3);
+    expect(JSON.stringify(calls[0].tools)).toContain("web_search");
+    // Fortsetzung schickt die bisherige Antwort mit
+    expect((calls[1].messages as unknown[]).length).toBe(2);
+    expect(calls[2].tool_choice).toEqual({ type: "tool", name: TOOL_NAME });
+  });
+
+  it("meldet verständlich, wenn die Websuche nicht aktiviert ist", async () => {
+    const client = {
+      messages: { create: async () => { throw Object.assign(new Error("web_search tool is not enabled"), { status: 400 }); } },
+    } as never;
+    const res = await researchFromText("x", "ctx", CREDS, client);
+    expect(res).toMatchObject({ ok: false, message: expect.stringMatching(/Websuche/) });
+  });
+
+  it("verlangt einen Schlüssel", async () => {
+    const res = await researchFromText("x", "ctx", { apiKey: null, model: "m" });
+    expect(res).toMatchObject({ ok: false, message: expect.stringMatching(/Einstellungen/) });
+  });
+});
+
+describe("Plan mit Quellen", () => {
+  it("übernimmt nur http(s)-Quellen und lehnt andere im Plan ab", async () => {
+    const p = proposalSchema.parse({
+      places: [{ ref: "p1", name: "Camp", kind: "camping", reason: "Schön", sources: ["https://a.example/x", "javascript:alert(1)", "kaputt"] }],
+    });
+    const plan = await buildPlan(p, [], range, async () => null);
+    expect(plan.places[0].sources).toEqual(["https://a.example/x"]);
+    expect(plan.places[0].reason).toBe("Schön");
+    expect(plan.mode).toBe("capture");
+    const bad = JSON.parse(JSON.stringify(plan));
+    bad.places[0].sources = ["javascript:alert(1)"];
+    expect(planSchema.safeParse(bad).success).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { searchPlaces } from "@/app/geocode/actions";
 import { buildPlan, type GeoHit, type KnownPlace } from "@/lib/ai/build-plan";
-import { proposeFromText } from "@/lib/ai/claude";
+import { proposeFromText, researchFromText } from "@/lib/ai/claude";
 import { planSchema, type Plan, type PlanEndpoint } from "@/lib/ai/plan";
 import { tripContext } from "@/lib/ai/prompt";
 import { storeRoute } from "@/lib/route-store";
@@ -18,6 +18,13 @@ export type AiState = { text: string; message?: string; plan?: Plan } | null;
 
 const uuid = z.uuid();
 const MAX_TEXT = 8000;
+
+/** Quellen der Recherche an die Notizen hängen, damit man sie später wiederfindet. */
+function withSources(notes: string | null, sources: string[]): string | null {
+  if (!sources.length) return notes;
+  const block = `Quellen:\n${sources.join("\n")}`;
+  return (notes ? `${notes}\n\n${block}` : block).slice(0, 2000);
+}
 
 async function geocode(query: string): Promise<GeoHit | null> {
   const res = await searchPlaces(query);
@@ -70,10 +77,15 @@ export async function proposeEntries(
   });
 
   const settings = await loadSettings(supabase);
-  const result = await proposeFromText(text, context, { apiKey: settings.anthropicKey, model: settings.model });
+  const search = formData.get("mode") === "search";
+  const creds = { apiKey: settings.anthropicKey, model: settings.model };
+  const result = search
+    ? await researchFromText(text, context, creds)
+    : await proposeFromText(text, context, creds);
   if (!result.ok) return { text, message: result.message };
 
   const plan = await buildPlan(result.proposal, places, trip, geocode);
+  if (search) plan.mode = "search";
   if (plan.places.length === 0 && plan.transfers.length === 0) {
     return {
       text,
@@ -155,10 +167,10 @@ export async function applyPlan(
         addr_country: p.addr_country,
         lodging_name: p.lodging_name,
         lodging_checkin: p.lodging_checkin,
-        description: p.description,
-        notes: p.notes,
+        description: p.description ?? p.reason,
+        notes: withSources(p.notes, p.sources),
         source: "ai",
-        source_ref: "chat",
+        source_ref: plan.mode === "search" ? (p.sources[0] ?? "recherche").slice(0, 500) : "chat",
         reviewed: true,
       })
       .select("id")

@@ -120,3 +120,8 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
+
+## Phase 3: Einstellungen und KI-Recherche
+- `/settings`: Claude-API-Schlüssel, OpenRouteService-Schlüssel und Modell werden in `user_settings` gespeichert (RLS: nur die eigene Zeile; Schlüssel nie an den Browser zurückgegeben, nur maskiert angezeigt). Ohne gespeicherten Wert gelten weiterhin die Umgebungsvariablen. Migration `20261111250000_user_settings.sql` (auch in `catch-up.sql`).
+- KI-Seite hat zwei Modi: «Eintragen» (aus Text) und «Vorschläge suchen» (Websuche `web_search_20250305`, danach erzwungener Werkzeugaufruf). Vorschläge enthalten Begründung und Quellen (nur tatsächlich gefundene Adressen), nichts ist vorausgewählt; beim Speichern landen Begründung als Beschreibung und Quellen in den Notizen.
+- Voraussetzung: «Web search» muss in der Anthropic-Console aktiviert sein.
