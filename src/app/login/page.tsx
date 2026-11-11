@@ -12,8 +12,8 @@ export default function LoginPage({
       <header>
         <h1 className="text-2xl font-semibold">Kanada-Reiseplaner</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          Ihr teilt euch einen Zugang. Wir senden einen Login-Link an die
-          gemeinsame Adresse.
+          Ihr teilt euch einen Zugang. Meldet euch mit der gemeinsamen
+          Adresse an.
         </p>
       </header>
       <Suspense>
