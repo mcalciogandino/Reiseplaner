@@ -97,9 +97,6 @@ export function DestinationForm({
         <Field id="lodging_name" label="Name">
           <Input id="lodging_name" name="lodging_name" defaultValue={v("lodging_name")} />
         </Field>
-        <Field id="lodging_address" label="Adresse">
-          <Input id="lodging_address" name="lodging_address" defaultValue={v("lodging_address")} />
-        </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="lodging_checkin" label="Check-in ab">
             <Input id="lodging_checkin" name="lodging_checkin" type="time" defaultValue={v("lodging_checkin").slice(0, 5)} />

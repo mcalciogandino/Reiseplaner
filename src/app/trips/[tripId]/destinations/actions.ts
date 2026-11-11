@@ -13,7 +13,7 @@ export type DestinationFormState = {
 
 const FIELDS = [
   "name", "arrival_date", "departure_date", "timezone", "description",
-  "lodging_name", "lodging_address", "lodging_checkin", "lodging_booking_ref", "notes",
+  "lodging_name", "lodging_checkin", "lodging_booking_ref", "notes",
   "lat", "lng", "place_label",
   "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country",
 ] as const;
@@ -31,7 +31,6 @@ const schema = z
     timezone: text(60),
     description: text(2000),
     lodging_name: text(150),
-    lodging_address: text(250),
     lodging_checkin: z
       .union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Bitte eine Uhrzeit wählen.")])
       .transform((v) => v || null),
