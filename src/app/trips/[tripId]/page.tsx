@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
+import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Timeline } from "@/components/timeline";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { routeWarnings } from "@/lib/route-warnings";
@@ -44,7 +45,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     .maybeSingle<Trip>();
   if (!trip) notFound();
 
-  const { data: stops } = await supabase
+  const { data: stops, error: stopsError } = await supabase
     .from("destinations")
     .select(DESTINATION_COLUMNS)
     .eq("trip_id", tripId)
@@ -52,7 +53,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     .order("created_at", { ascending: true })
     .returns<Destination[]>();
   const destinations = stops ?? [];
-  const { data: legs } = await supabase
+  const { data: legs, error: legsError } = await supabase
     .from("transfers")
     .select(TRANSFER_COLUMNS)
     .eq("trip_id", tripId)
@@ -60,6 +61,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     .order("created_at", { ascending: true })
     .returns<Transfer[]>();
   const transfers = legs ?? [];
+  const loadError = dbErrorMessage(stopsError, legsError);
   const nodes = buildTimeline(destinations, transfers);
   const warnings = routeWarnings(trip, destinations);
 
@@ -120,7 +122,9 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           </div>
         )}
 
-        {nodes.length === 0 ? (
+        {loadError && <DbErrorNotice message={loadError} />}
+
+        {loadError ? null : nodes.length === 0 ? (
           <Card>
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               Noch nichts erfasst. Füge Orte und Verschiebungen (Flüge, Mietwagen, Fähren, Fahrten) hinzu.

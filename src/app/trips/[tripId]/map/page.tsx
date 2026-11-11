@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
+import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Card } from "@/components/ui/card";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { buildMapData } from "@/lib/map";
@@ -34,7 +35,7 @@ async function Content({ params }: { params: Params }) {
     .maybeSingle<Trip>();
   if (!trip) notFound();
 
-  const [{ data: stops }, { data: legs }] = await Promise.all([
+  const [{ data: stops, error: stopsError }, { data: legs, error: legsError }] = await Promise.all([
     supabase
       .from("destinations")
       .select(DESTINATION_COLUMNS)
@@ -45,6 +46,7 @@ async function Content({ params }: { params: Params }) {
     supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).returns<Transfer[]>(),
   ]);
 
+  const loadError = dbErrorMessage(stopsError, legsError);
   const data = buildMapData(stops ?? [], legs ?? []);
 
   return (
@@ -54,7 +56,9 @@ async function Content({ params }: { params: Params }) {
       </Link>
       <h1 className="text-2xl font-semibold">Karte · {trip.name}</h1>
 
-      {data.points.length === 0 ? (
+      {loadError ? (
+        <DbErrorNotice message={loadError} />
+      ) : data.points.length === 0 ? (
         <Card>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             Noch kein Reiseort hat einen Standort. Öffne einen Ort und suche bei «Standort auf der Karte»

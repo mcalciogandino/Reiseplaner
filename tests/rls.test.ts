@@ -234,6 +234,12 @@ describe("Constraints", () => {
     await db.exec("delete from transfers where from_lat = 47.4");
   });
 
+  it("catch-up.sql lässt sich auf aktuellem Stand wiederholt ausführen", async () => {
+    const sql = readFileSync("supabase/catch-up.sql", "utf8");
+    await expect(db.exec(sql)).resolves.not.toThrow();
+    await expect(db.exec(sql)).resolves.not.toThrow();
+  });
+
   it("kennt nur gültige Ortsarten", async () => {
     const ins = (kind: string) =>
       db.exec(`insert into destinations (trip_id, name, kind) values ('${TRIP}', 'k', '${kind}')`);
