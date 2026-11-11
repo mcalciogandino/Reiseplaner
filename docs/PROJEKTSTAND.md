@@ -110,6 +110,13 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 - Auf der Bearbeitungsseite der Fahrt: «Route berechnen / neu berechnen». Die Karte zeichnet gespeicherte Routen statt gerader Linien; die Zeitleiste zeigt Strecke und Fahrzeit der Route.
 - Neue Migration: `20261111240000_transfer_route.sql`. Neue Variable: `ORS_API_KEY` (nie ins Repository).
 
+## Phase 3 (Anfang): KI-Erfassung «Mit KI erfassen»
+
+- Seite `/trips/[tripId]/ai`: Text frei oder aus einer Buchungsbestätigung einfügen → Claude (Tool Use, `src/lib/ai/`) schlägt Orte und Verschiebungen vor → die App sucht Standorte und Zeitzonen, schätzt Dauer/Distanz/Ankunft (`build-plan.ts`) → Vorschau mit Auswahl und Warnungen → erst «Übernehmen» speichert (mit `source = 'ai'`, bei Fehlern wird alles zurückgenommen).
+- Der Plan wird beim Speichern erneut mit Zod geprüft, nie blind aus dem Browser übernommen; Verweise auf Orte anderer Reisen werden verworfen.
+- Variablen: `ANTHROPIC_API_KEY` (nur Server), optional `AI_MODEL` (Standard `claude-sonnet-5-5`). Ohne Schlüssel zeigt die Seite einen Hinweis.
+- Noch offen: PDF-/Bild-Upload von Bestätigungen, Websuche, Chat mit Verlauf, Aktivitäten/Budget per KI, «Neu von der KI» im Dashboard.
+
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
