@@ -35,10 +35,13 @@ export type Transfer = {
   from_lng: number | null;
   to_lat: number | null;
   to_lng: number | null;
+  route_geojson: unknown; // GeoJSON-LineString (OpenRouteService) oder null
+  route_distance_m: number | null;
+  route_duration_s: number | null;
 };
 
 export const TRANSFER_COLUMNS =
-  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng";
+  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s";
 
 /** Wandelt "2027-07-01T10:30" in Ortszeit der Zeitzone in einen UTC-ISO-String. */
 export function localToUtcIso(local: string, timeZone: string): string {

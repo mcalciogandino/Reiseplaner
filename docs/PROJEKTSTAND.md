@@ -82,7 +82,7 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 
 **Neue Migrationen einspielen:** `20261111190000_destination_location.sql` und `20261111200000_destination_address.sql` (strukturierte Adresse: Strasse, Nr., PLZ, Ort, Provinz, Land; wird bei der Suche ausgefüllt).
 
-**Stufe 2 (noch offen):** Strassenrouten mit OpenRouteService (Gratis-Schlüssel nötig, `ORS_API_KEY` nur serverseitig), Koordinaten für freie Orte in Verschiebungen (Flughäfen), Tageskarte.
+**Stufe 2:** Strassenrouten mit OpenRouteService (`ORS_API_KEY`, nur serverseitig, in `.env.local` bzw. den Hosting-Variablen) – siehe Schritt 8. Koordinaten für freie Orte sind in Schritt 6 erledigt. Offen: Tageskarte, Unterkünfte/Aktivitäten als Punkte.
 
 ## Phase 2, Schritt 5: Zeitleiste, Ortsarten, Neuer Ort in der Verschiebung
 
@@ -103,6 +103,12 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 - **Ortsarten** erweitert auf rund 40 in Gruppen (Orte, Unterkunft, Natur, Verkehr, Ausflüge, Essen und Einkaufen, Sonstiges). Migration: `20261111230000_destination_kinds_more.sql`.
 - **Tippbares Auswahlfeld** (`Combobox`, wie die Google-Suche, Liste anklickbar, Pfeiltasten/Enter) für Ortsart, Reiseort bei Von/Nach und Zeitzone; mehr Zeitzonen in der Liste.
 - **Zeitleiste mit Tagen:** waagrechte Linie und Überschrift «Tag 1, Tag 2 …» (ab Reisestart, Datum in Ortszeit) vor dem ersten Eintrag jedes Tages.
+
+## Phase 2, Schritt 8: Strassenrouten (Karte, Stufe 2)
+
+- Beim Speichern einer **Autofahrt** mit Start- und Zielstandort wird die Strassenroute bei OpenRouteService berechnet und in `transfers.route_geojson` (plus Strecke und Fahrzeit) gespeichert (`src/lib/route-service.ts`, `routing.ts`). Schlägt der Dienst fehl, wird die Fahrt trotzdem gespeichert.
+- Auf der Bearbeitungsseite der Fahrt: «Route berechnen / neu berechnen». Die Karte zeichnet gespeicherte Routen statt gerader Linien; die Zeitleiste zeigt Strecke und Fahrzeit der Route.
+- Neue Migration: `20261111240000_transfer_route.sql`. Neue Variable: `ORS_API_KEY` (nie ins Repository).
 
 ## Nächster Schritt: Phase 2 (Rest)
 

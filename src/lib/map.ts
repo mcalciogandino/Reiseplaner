@@ -1,3 +1,4 @@
+import { asRouteLine } from "./routing";
 import type { Destination } from "./destinations";
 import type { Transfer } from "./transfers";
 import { formatDate } from "./trips";
@@ -68,7 +69,8 @@ const hasCoords = (d: Located): d is Located & { lat: number; lng: number } =>
  */
 export function buildMapData(
   destinations: Located[],
-  transfers: Pick<Transfer, "kind" | "from_destination_id" | "to_destination_id">[],
+  transfers: (Pick<Transfer, "kind" | "from_destination_id" | "to_destination_id"> &
+    Partial<Pick<Transfer, "route_geojson">>)[],
 ): MapData {
   const byId = new Map(destinations.map((d) => [d.id, d]));
   const points: MapPoint[] = [];
@@ -100,7 +102,7 @@ export function buildMapData(
     lines.push(
       t.kind === "flight"
         ? { kind: "flight", coords: greatCircleArc(a, b) }
-        : { kind: "drive", coords: [a, b] },
+        : { kind: "drive", coords: (t.kind === "drive" && asRouteLine(t.route_geojson)) || [a, b] },
     );
   }
 

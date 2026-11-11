@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { getTripRange } from "@/lib/trip-range";
 import { KIND_LABELS, TRANSFER_COLUMNS, utcToLocalInput, type Transfer } from "@/lib/transfers";
-import { deleteTransfer, updateTransfer } from "../actions";
+import { deleteTransfer, recalculateRoute, updateTransfer } from "../actions";
+import { RouteButton } from "../route-button";
 import { TransferForm, type StopOption } from "../transfer-form";
 
 type Params = Promise<{ tripId: string; transferId: string }>;
@@ -80,6 +81,14 @@ async function Content({ params }: { params: Params }) {
           cancelHref={`/trips/${tripId}`}
         />
       </Card>
+      {t.kind === "drive" && (
+        <Card>
+          <RouteButton
+            action={recalculateRoute.bind(null, tripId, transferId)}
+            hasRoute={t.route_distance_m !== null}
+          />
+        </Card>
+      )}
       <DeleteForm
         action={deleteTransfer.bind(null, tripId, transferId)}
         label="Verschiebung löschen"

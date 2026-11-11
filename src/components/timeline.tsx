@@ -285,6 +285,12 @@ function TransferCard({
             )}
             {t.arrive_at && t.arrive_tz && <p>Ankunft {formatLocal(t.arrive_at, t.arrive_tz)} (Ortszeit)</p>}
             {facts.length > 0 && <p>{facts.join(" · ")}</p>}
+            {t.route_distance_m !== null && t.route_duration_s !== null && (
+              <p>
+                Strassenroute: {Math.round(t.route_distance_m / 1000)} km ·{" "}
+                {formatDuration(Math.round(t.route_duration_s / 60))}
+              </p>
+            )}
           </div>
         </Card>
       </Link>
