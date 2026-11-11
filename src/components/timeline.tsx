@@ -1,7 +1,10 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { de } from "date-fns/locale";
 import {
-  BedDouble, Building2, Car, CircleDot, House, KeyRound, Landmark, MapPin, Plane,
-  Route, Ship, Tent, TreePine, TrainFront, type LucideIcon,
+  Anchor, BedDouble, Building2, Bus, Camera, Car, CircleDot, CircleParking, Coffee, Compass,
+  Droplets, Eye, Flag, Footprints, Fuel, Hotel, House, KeyRound, Landmark, MapPin, Mountain,
+  PawPrint, Plane, Route, Ship, ShoppingBag, Snowflake, Store, Tent, TrainFront, TreePine,
+  Trees, Umbrella, Utensils, Waves, Wine, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { AddMenu } from "@/components/add-menu";
@@ -10,7 +13,7 @@ import {
   PLACE_KIND_LABELS, TIMEZONES, type Destination, type PlaceKind,
 } from "@/lib/destinations";
 import { transferMapsUrl } from "@/lib/map";
-import { insertContext, type TimelineNode } from "@/lib/timeline";
+import { dayHeaders, insertContext, type TimelineNode } from "@/lib/timeline";
 import {
   durationMinutes, formatDuration, formatLocal, KIND_LABELS, type Transfer, type TransferKind,
 } from "@/lib/transfers";
@@ -22,8 +25,18 @@ const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
   train: TrainFront, other: Route,
 };
 const PLACE_ICONS: Record<PlaceKind, LucideIcon> = {
-  city: Building2, village: House, camping: Tent, national_park: TreePine,
-  attraction: Landmark, other: MapPin,
+  city: Building2, village: House,
+  hotel: Hotel, motel: BedDouble, hostel: BedDouble, lodge: House, bnb: BedDouble,
+  vacation_rental: House, camping: Tent,
+  national_park: TreePine, provincial_park: Trees, lake: Waves, beach: Umbrella,
+  mountain: Mountain, glacier: Snowflake, waterfall: Droplets, viewpoint: Eye,
+  hiking: Footprints, scenic_drive: Route,
+  airport: Plane, train_station: TrainFront, bus_station: Bus, ferry_terminal: Anchor,
+  car_rental: Car, gas_station: Fuel, parking: CircleParking, border: Flag,
+  attraction: Landmark, sight: Camera, museum: Landmark, activity: Compass,
+  wildlife: PawPrint, ski_resort: Snowflake, winery: Wine,
+  restaurant: Utensils, cafe: Coffee, market: Store, shopping: ShoppingBag,
+  other: MapPin,
 };
 
 /**
@@ -32,20 +45,26 @@ const PLACE_ICONS: Record<PlaceKind, LucideIcon> = {
  */
 export function Timeline({
   tripId,
+  startDate,
   nodes,
   destinations,
 }: {
   tripId: string;
+  startDate: string;
   nodes: TimelineNode[];
   destinations: Destination[];
 }) {
   const stopName = new Map(destinations.map((d) => [d.id, d.name]));
   const firstIndex = new Map(destinations.map((d, i) => [d.id, i]));
 
+  // Tagesüberschrift vor dem ersten Element eines neuen Tages («Tag 1», «Tag 2» …).
+  const headers = dayHeaders(nodes);
+
   return (
     <ol aria-label="Zeitleiste" className="flex flex-col">
       {nodes.map((node, i) => (
         <li key={node.key} className="contents">
+          {headers[i] && <DayHeader date={headers[i] === "open" ? null : headers[i]} startDate={startDate} />}
           <AddRow tripId={tripId} nodes={nodes} index={i} />
           <Row
             icon={iconFor(node)}
@@ -77,6 +96,26 @@ export function Timeline({
         <AddRow tripId={tripId} nodes={nodes} index={nodes.length} />
       </li>
     </ol>
+  );
+}
+
+function DayHeader({ date, startDate }: { date: string | null; startDate: string }) {
+  let title = "Datum offen";
+  let sub = "";
+  if (date) {
+    const n = differenceInCalendarDays(parseISO(date), parseISO(startDate)) + 1;
+    title = n >= 1 ? `Tag ${n}` : "Vor der Reise";
+    sub = format(parseISO(date), "EEEE, d. MMMM yyyy", { locale: de });
+  }
+  return (
+    <div className="grid grid-cols-[1fr_3.5rem] pt-4" role="presentation">
+      <div className="flex items-center gap-3">
+        <h3 className="shrink-0 text-sm font-semibold">{title}</h3>
+        {sub && <span className="shrink-0 text-sm text-neutral-500">{sub}</span>}
+        <hr className="min-w-4 flex-1 border-neutral-300 dark:border-neutral-700" />
+      </div>
+      <div className={railLine} />
+    </div>
   );
 }
 

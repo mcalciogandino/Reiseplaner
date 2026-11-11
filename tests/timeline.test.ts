@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Destination } from "../src/lib/destinations";
-import { buildTimeline, insertContext } from "../src/lib/timeline";
+import { buildTimeline, dayHeaders, insertContext } from "../src/lib/timeline";
 import type { Transfer } from "../src/lib/transfers";
 
 const dest = (id: string, extra: Partial<Destination> = {}): Destination => ({
@@ -74,5 +74,37 @@ describe("insertContext", () => {
     expect(insertContext(nodes, 1)).toEqual({ from: "a", to: "b", position: 1 });
     expect(insertContext(nodes, 0)).toEqual({ from: null, to: "a", position: 0 });
     expect(insertContext(nodes, 3)).toEqual({ from: "b", to: null, position: 2 });
+  });
+});
+
+describe("Tage", () => {
+  it("ordnet Elemente dem Kalendertag in Ortszeit zu und vererbt fehlende Daten", () => {
+    const nodes = buildTimeline(
+      [dest("a", { arrival_date: "2027-07-01" }), dest("b"), dest("c")],
+      [
+        tr("t", {
+          kind: "flight", from_destination_id: "a", to_destination_id: "b",
+          depart_at: "2027-07-01T20:00:00Z", depart_tz: "Europe/Zurich",
+          arrive_at: "2027-07-02T04:00:00Z", arrive_tz: "America/Vancouver",
+        }),
+      ],
+    );
+    const byKey = Object.fromEntries(nodes.map((n) => [n.key, n.date]));
+    expect(byKey["p-a"]).toBe("2027-07-01");
+    expect(byKey["t-t"]).toBe("2027-07-01"); // 22:00 Zürich
+    expect(byKey["p-b"]).toBe("2027-07-01"); // 21:00 Vancouver am Vortag
+    expect(nodes.find((n) => n.key === "p-c")?.date).toBeTruthy();
+  });
+});
+
+describe("dayHeaders", () => {
+  it("setzt eine Überschrift je neuem Tag und nie rückwärts", () => {
+    const base = { key: "k", dated: true } as const;
+    const place = (date: string | null) =>
+      ({ type: "place", destination: dest("x"), ...base, date }) as ReturnType<typeof buildTimeline>[number];
+    expect(dayHeaders([place("2027-07-01"), place("2027-07-01"), place("2027-07-02"), place("2027-07-01")])).toEqual([
+      "2027-07-01", null, "2027-07-02", null,
+    ]);
+    expect(dayHeaders([place(null), place("2027-07-03")])).toEqual(["open", "2027-07-03"]);
   });
 });

@@ -128,7 +128,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
             </p>
           </Card>
         ) : (
-          <Timeline tripId={tripId} nodes={nodes} destinations={destinations} />
+          <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} />
         )}
       </section>
 

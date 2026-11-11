@@ -98,6 +98,12 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 - **Zeitzone aus dem Ort**: `tz-lookup` bestimmt die IANA-Zone serverseitig aus den Koordinaten des Suchtreffers; beliebige gültige Zonen sind erlaubt, nicht nur die Liste.
 - **Uhrzeiten im 24-Stunden-Format** (`DateTimeField`, `TimeInput`), «+»-Menü der Zeitleiste schliesst sich (`AddMenu`).
 
+## Phase 2, Schritt 7: mehr Ortsarten, tippbare Auswahl, Tage in der Zeitleiste
+
+- **Ortsarten** erweitert auf rund 40 in Gruppen (Orte, Unterkunft, Natur, Verkehr, Ausflüge, Essen und Einkaufen, Sonstiges). Migration: `20261111230000_destination_kinds_more.sql`.
+- **Tippbares Auswahlfeld** (`Combobox`, wie die Google-Suche, Liste anklickbar, Pfeiltasten/Enter) für Ortsart, Reiseort bei Von/Nach und Zeitzone; mehr Zeitzonen in der Liste.
+- **Zeitleiste mit Tagen:** waagrechte Linie und Überschrift «Tag 1, Tag 2 …» (ab Reisestart, Datum in Ortszeit) vor dem ersten Eintrag jedes Tages.
+
 ## Nächster Schritt: Phase 2 (Rest)
 
 Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.

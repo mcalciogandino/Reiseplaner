@@ -8,10 +8,11 @@ import { DateTimeField } from "@/components/ui/date-time-field";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { LocationPicker } from "@/components/location-picker";
+import { Combobox } from "@/components/ui/combobox";
 import { Select } from "@/components/ui/select";
 import { EMPTY_ADDRESS } from "@/lib/geocode";
 import { NEW_PLACE } from "@/lib/place-fields";
-import { PLACE_KIND_LABELS, PLACE_KINDS } from "@/lib/destinations";
+import { PLACE_KIND_DEFS } from "@/lib/destinations";
 import { estimateTransfer, type Point } from "@/lib/estimate";
 import { zoneOptions } from "@/lib/timezone";
 import { KIND_LABELS, KINDS, localToUtcIso, utcToLocalInput, type TransferKind } from "@/lib/transfers";
@@ -70,6 +71,10 @@ export function TransferForm({
   const departBounds = dateTimeBounds(range, departLocal);
   const arriveBounds = dateTimeBounds(range, arriveLocal);
   const tzOf = (id: string) => stops.find((s) => s.id === id)?.timezone ?? "";
+  const [kinds, setKinds] = useState({
+    from: v("from_new_kind") || "city",
+    to: v("to_new_kind") || "city",
+  });
   const [fromSel, setFromSel] = useState(v("from_destination_id"));
   const [toSel, setToSel] = useState(v("to_destination_id"));
 
@@ -112,22 +117,22 @@ export function TransferForm({
     onPick: (tz: string) => void,
   ) => (
     <Field id={name} label={label}>
-      <Select
+      <Combobox
         id={name}
         name={name}
         value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          const tz = tzOf(e.target.value);
+        onChange={(id) => {
+          setValue(id);
+          const tz = tzOf(id);
           if (tz) onPick(tz);
         }}
-      >
-        <option value="">– keiner (freier Ort) –</option>
-        {stops.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-        <option value={NEW_PLACE}>＋ Neuer Ort anlegen …</option>
-      </Select>
+        placeholder="Ort tippen oder auswählen …"
+        options={[
+          { value: "", label: "– keiner (freier Ort) –", pinned: true },
+          ...stops.map((x) => ({ value: x.id, label: x.name })),
+          { value: NEW_PLACE, label: "＋ Neuer Ort anlegen …", pinned: true },
+        ]}
+      />
     </Field>
   );
 
@@ -146,11 +151,13 @@ export function TransferForm({
           <Input id={`${p}name`} name={`${p}name`} required defaultValue={v(`${p}name`)} placeholder="z. B. Whistler" />
         </Field>
         <Field id={`${p}kind`} label="Art des Ortes">
-          <Select id={`${p}kind`} name={`${p}kind`} defaultValue={v(`${p}kind`) || "city"}>
-            {PLACE_KINDS.map((k) => (
-              <option key={k} value={k}>{PLACE_KIND_LABELS[k]}</option>
-            ))}
-          </Select>
+          <Combobox
+            id={`${p}kind`}
+            name={`${p}kind`}
+            value={kinds[side]}
+            onChange={(k) => setKinds((x) => ({ ...x, [side]: k }))}
+            options={PLACE_KIND_DEFS.map((d) => ({ ...d }))}
+          />
         </Field>
         <input type="hidden" name={`${p}timezone`} value={side === "from" ? departTz : arriveTz} />
         <LocationPicker
@@ -189,12 +196,14 @@ export function TransferForm({
 
   const tzSelect = (name: string, value: string, set: (v: string) => void) => (
     <Field id={name} label="Zeitzone">
-      <Select id={name} name={name} value={value} onChange={(e) => set(e.target.value)}>
-        <option value="">– wählen –</option>
-        {zoneOptions(value).map((z) => (
-          <option key={z.value} value={z.value}>{z.label}</option>
-        ))}
-      </Select>
+      <Combobox
+        id={name}
+        name={name}
+        value={value}
+        onChange={set}
+        placeholder="Zeitzone tippen …"
+        options={[{ value: "", label: "– wählen –" }, ...zoneOptions(value)]}
+      />
     </Field>
   );
 

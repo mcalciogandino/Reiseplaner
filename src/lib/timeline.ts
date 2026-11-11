@@ -1,10 +1,15 @@
 import type { Destination } from "./destinations";
-import type { Transfer } from "./transfers";
+import { utcToLocalInput, type Transfer } from "./transfers";
+
+type Base = {
+  /** Kalendertag (YYYY-MM-DD, Ortszeit); Elemente ohne eigenes Datum übernehmen den vorherigen Tag. */
+  date: string | null;
+};
 
 export type TimelineNode =
-  | { type: "place"; key: string; destination: Destination; dated: boolean }
-  | { type: "free"; key: string; label: string }
-  | { type: "transfer"; key: string; transfer: Transfer };
+  | (Base & { type: "place"; key: string; destination: Destination; dated: boolean })
+  | (Base & { type: "free"; key: string; label: string })
+  | (Base & { type: "transfer"; key: string; transfer: Transfer });
 
 /** Rang bei gleicher Zeit: Abreiseort, freier Abfahrtsort, Verschiebung, freier Zielort, Zielort. */
 const RANK = { fromPlace: 0, fromFree: 1, transfer: 2, toFree: 3, toPlace: 4 } as const;
@@ -12,6 +17,16 @@ const RANK = { fromPlace: 0, fromFree: 1, transfer: 2, toFree: 3, toPlace: 4 } a
 type Entry = { time: number; rank: number; seq: number; node: TimelineNode };
 
 const ms = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
+/** Ortsdatum "YYYY-MM-DD" eines UTC-Zeitpunkts in der Zeitzone; null ohne Angaben. */
+function localDate(iso: string | null, tz: string | null): string | null {
+  if (!iso || !tz) return null;
+  try {
+    return utcToLocalInput(iso, tz).slice(0, 10);
+  } catch {
+    return null;
+  }
+}
+
 const dayStart = (date: string | null) => (date ? Date.parse(`${date}T00:00:00Z`) : NaN);
 
 /**
@@ -64,7 +79,18 @@ export function buildTimeline(destinations: Destination[], transfers: Transfer[]
     }
     if (time === -Infinity) time = -1e15; // ganz an den Anfang, aber in Eingabereihenfolge
     prevPlace = time;
-    entries.push({ time, rank, seq: seq++, node: { type: "place", key: `p-${d.id}`, destination: d, dated } });
+    const arrivedDate = transfers
+      .filter((t) => t.to_destination_id === d.id)
+      .map((t) => localDate(t.arrive_at, t.arrive_tz))
+      .find(Boolean) ?? null;
+    const ownDate = d.arrival_date ?? arrivedDate ?? localDate(
+      transfers.find((t) => t.from_destination_id === d.id)?.depart_at ?? null,
+      transfers.find((t) => t.from_destination_id === d.id)?.depart_tz ?? null,
+    );
+    entries.push({
+      time, rank, seq: seq++,
+      node: { type: "place", key: `p-${d.id}`, destination: d, dated, date: ownDate },
+    });
   }
 
   // Verschiebungen: ohne Zeit folgen sie der vorherigen Verschiebung (oder stehen am Ende).
@@ -74,13 +100,24 @@ export function buildTimeline(destinations: Destination[], transfers: Transfer[]
     const arrive = ms(t.arrive_at);
     const time = !Number.isNaN(depart) ? depart : !Number.isNaN(arrive) ? arrive : prevTransfer;
     prevTransfer = time;
-    entries.push({ time, rank: RANK.transfer, seq: seq++, node: { type: "transfer", key: `t-${t.id}`, transfer: t } });
+    const departDate = localDate(t.depart_at, t.depart_tz);
+    const arriveDate = localDate(t.arrive_at, t.arrive_tz);
+    entries.push({
+      time, rank: RANK.transfer, seq: seq++,
+      node: { type: "transfer", key: `t-${t.id}`, transfer: t, date: departDate ?? arriveDate },
+    });
     if (t.from_place) {
-      entries.push({ time, rank: RANK.fromFree, seq: seq++, node: { type: "free", key: `f-${t.id}-from`, label: t.from_place } });
+      entries.push({
+        time, rank: RANK.fromFree, seq: seq++,
+        node: { type: "free", key: `f-${t.id}-from`, label: t.from_place, date: departDate ?? arriveDate },
+      });
     }
     if (t.to_place) {
       const at = !Number.isNaN(arrive) ? arrive : time;
-      entries.push({ time: at, rank: RANK.toFree, seq: seq++, node: { type: "free", key: `f-${t.id}-to`, label: t.to_place } });
+      entries.push({
+        time: at, rank: RANK.toFree, seq: seq++,
+        node: { type: "free", key: `f-${t.id}-to`, label: t.to_place, date: arriveDate ?? departDate },
+      });
     }
   }
 
@@ -96,7 +133,13 @@ export function buildTimeline(destinations: Destination[], transfers: Transfer[]
     ) continue;
     nodes.push(e.node);
   }
-  return nodes;
+
+  // Elemente ohne eigenes Datum gehören zum Tag davor.
+  let current: string | null = null;
+  return nodes.map((n) => {
+    if (n.date) current = n.date;
+    return n.date === current ? n : { ...n, date: current };
+  });
 }
 
 /**
@@ -114,4 +157,24 @@ export function insertContext(nodes: TimelineNode[], index: number) {
     /** Anzahl Reiseorte vor dieser Stelle = Einfügeindex in der Routenreihenfolge. */
     position: before.length,
   };
+}
+
+/**
+ * Pro Element: das Datum, wenn hier ein neuer Tag beginnt, «open», wenn die Liste ohne
+ * Datum beginnt, sonst null. Tage laufen nur vorwärts (Zeitzonen-Sprünge erzeugen keine Überschrift).
+ */
+export function dayHeaders(nodes: TimelineNode[]): (string | null)[] {
+  const result: (string | null)[] = [];
+  let shown: string | null = null;
+  nodes.forEach((n, i) => {
+    if (n.date === null) {
+      result.push(i === 0 ? "open" : null);
+    } else if (shown === null || n.date > shown) {
+      shown = n.date;
+      result.push(n.date);
+    } else {
+      result.push(null);
+    }
+  });
+  return result;
 }

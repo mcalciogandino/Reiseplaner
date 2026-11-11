@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { LocationPicker } from "@/components/location-picker";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { TimeField } from "@/components/ui/date-time-field";
-import { PLACE_KIND_LABELS, PLACE_KINDS } from "@/lib/destinations";
+import { PLACE_KIND_DEFS } from "@/lib/destinations";
 import { zoneOptions } from "@/lib/timezone";
 import { dateBounds } from "@/lib/trips";
 import type { DestinationFormState } from "./actions";
@@ -34,6 +34,7 @@ export function DestinationForm({
   const [state, formAction, pending] = useActionState<DestinationFormState, FormData>(action, null);
   const v = (k: string) => state?.values[k] ?? String(initial[k] ?? "");
   const [arrival, setArrival] = useState(v("arrival_date"));
+  const [kind, setKind] = useState(v("kind") || "city");
   const [timezone, setTimezone] = useState(v("timezone"));
   const [derived, setDerived] = useState(false);
   const arrivalBounds = dateBounds(range, arrival);
@@ -45,11 +46,13 @@ export function DestinationForm({
         <Input id="name" name="name" required defaultValue={v("name")} placeholder="z. B. Whistler" />
       </Field>
       <Field id="kind" label="Art des Ortes">
-        <Select id="kind" name="kind" defaultValue={v("kind") || "city"}>
-          {PLACE_KINDS.map((k) => (
-            <option key={k} value={k}>{PLACE_KIND_LABELS[k]}</option>
-          ))}
-        </Select>
+        <Combobox
+          id="kind"
+          name="kind"
+          value={kind}
+          onChange={setKind}
+          options={PLACE_KIND_DEFS.map((d) => ({ ...d }))}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="arrival_date" label="Ankunft">
@@ -83,20 +86,16 @@ export function DestinationForm({
             : "Wird aus dem Standort abgeleitet; Uhrzeiten im Tagesplan gelten in der Ortszeit."
         }
       >
-        <Select
+        <Combobox
           id="timezone"
           name="timezone"
           value={timezone}
-          onChange={(e) => {
-            setTimezone(e.target.value);
+          onChange={(z) => {
+            setTimezone(z);
             setDerived(false);
           }}
-        >
-          <option value="">– keine Angabe –</option>
-          {zoneOptions(timezone).map((z) => (
-            <option key={z.value} value={z.value}>{z.label}</option>
-          ))}
-        </Select>
+          options={[{ value: "", label: "– keine Angabe –" }, ...zoneOptions(timezone)]}
+        />
       </Field>
       <LocationPicker
         key={`${v("lat")},${v("lng")},${v("addr_street")}`}
