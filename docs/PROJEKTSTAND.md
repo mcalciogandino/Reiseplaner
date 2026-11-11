@@ -80,7 +80,7 @@ Flüge, Mietwagen, Fähren, Züge und Autofahrten unter jeder Reise (`transfers`
 - **Google-Maps-Link** bei Fahrten und Zugfahrten (ohne API-Schlüssel, aus den Koordinaten gebaut).
 - Auswahllisten im Dunkelmodus behoben (`color-scheme`, eigene `Select`-Komponente).
 
-**Neue Migration einspielen:** `supabase/migrations/20261111190000_destination_location.sql`.
+**Neue Migrationen einspielen:** `20261111190000_destination_location.sql` und `20261111200000_destination_address.sql` (strukturierte Adresse: Strasse, Nr., PLZ, Ort, Provinz, Land; wird bei der Suche ausgefüllt).
 
 **Stufe 2 (noch offen):** Strassenrouten mit OpenRouteService (Gratis-Schlüssel nötig, `ORS_API_KEY` nur serverseitig), Koordinaten für freie Orte in Verschiebungen (Flughäfen), Tageskarte.
 

@@ -14,10 +14,16 @@ export type Destination = {
   lat: number | null;
   lng: number | null;
   place_label: string | null;
+  addr_street: string | null;
+  addr_house_number: string | null;
+  addr_postcode: string | null;
+  addr_city: string | null;
+  addr_region: string | null;
+  addr_country: string | null;
 };
 
 export const DESTINATION_COLUMNS =
-  "id, name, description, arrival_date, departure_date, sort_order, timezone, lodging_name, lodging_address, lodging_checkin, lodging_booking_ref, notes, lat, lng, place_label";
+  "id, name, description, arrival_date, departure_date, sort_order, timezone, lodging_name, lodging_address, lodging_checkin, lodging_booking_ref, notes, lat, lng, place_label, addr_street, addr_house_number, addr_postcode, addr_city, addr_region, addr_country";
 
 export const TIMEZONES = [
   { value: "America/Vancouver", label: "Pacific (Vancouver, Whistler)" },

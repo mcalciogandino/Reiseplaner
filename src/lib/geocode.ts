@@ -1,10 +1,25 @@
 import { z } from "zod";
 
+/** Strukturierte Adresse; leere Felder sind leere Zeichenketten (Formularwerte). */
+export type Address = {
+  street: string;
+  house_number: string;
+  postcode: string;
+  city: string;
+  region: string;
+  country: string;
+};
+
+export const EMPTY_ADDRESS: Address = {
+  street: "", house_number: "", postcode: "", city: "", region: "", country: "",
+};
+
 export type PlaceHit = {
   label: string;
   lat: number;
   lng: number;
   kind: string | null;
+  address: Address;
 };
 
 const nominatimItem = z.object({
@@ -13,7 +28,27 @@ const nominatimItem = z.object({
   display_name: z.string(),
   type: z.string().optional(),
   addresstype: z.string().optional(),
+  address: z.record(z.string(), z.unknown()).optional(),
 });
+
+/** Ordnet die Nominatim-Adressteile unseren Feldern zu (erstes vorhandenes Feld gewinnt). */
+export function parseAddress(raw: Record<string, unknown> | undefined): Address {
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = raw?.[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  };
+  return {
+    street: pick("road", "pedestrian", "footway", "path", "cycleway"),
+    house_number: pick("house_number"),
+    postcode: pick("postcode"),
+    city: pick("city", "town", "village", "hamlet", "municipality", "suburb", "county"),
+    region: pick("state", "province", "region", "state_district"),
+    country: pick("country"),
+  };
+}
 
 /** Rundet auf 6 Nachkommastellen (numeric(9,6) in der Datenbank). */
 export function roundCoord(n: number): number {
@@ -42,6 +77,7 @@ export function parseNominatim(json: unknown): PlaceHit[] {
       lat: roundCoord(lat),
       lng: roundCoord(lng),
       kind: item.data.addresstype ?? item.data.type ?? null,
+      address: parseAddress(item.data.address),
     });
   }
   return hits;

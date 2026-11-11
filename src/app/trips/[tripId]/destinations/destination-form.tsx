@@ -72,8 +72,20 @@ export function DestinationForm({
         </Select>
       </Field>
       <LocationPicker
-        key={`${v("lat")},${v("lng")}`}
-        initial={{ lat: v("lat"), lng: v("lng"), label: v("place_label") }}
+        key={`${v("lat")},${v("lng")},${v("addr_street")}`}
+        initial={{
+          lat: v("lat"),
+          lng: v("lng"),
+          label: v("place_label"),
+          address: {
+            street: v("addr_street"),
+            house_number: v("addr_house_number"),
+            postcode: v("addr_postcode"),
+            city: v("addr_city"),
+            region: v("addr_region"),
+            country: v("addr_country"),
+          },
+        }}
         defaultQuery={v("name")}
       />
       <Field id="description" label="Beschreibung">

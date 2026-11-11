@@ -48,6 +48,7 @@ export async function searchPlaces(query: string): Promise<SearchResult> {
     url.searchParams.set("q", q);
     url.searchParams.set("format", "jsonv2");
     url.searchParams.set("limit", "5");
+    url.searchParams.set("addressdetails", "1");
     url.searchParams.set("accept-language", "de");
     const res = await throttled(() =>
       fetch(url, {

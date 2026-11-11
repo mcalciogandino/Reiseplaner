@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cacheKey, isValidCoord, parseNominatim, roundCoord } from "../src/lib/geocode";
+import { cacheKey, isValidCoord, parseAddress, parseNominatim, roundCoord } from "../src/lib/geocode";
 
 describe("parseNominatim", () => {
   it("wandelt Treffer um und rundet auf 6 Stellen", () => {
@@ -10,10 +10,31 @@ describe("parseNominatim", () => {
         display_name: "Whistler, British Columbia, Kanada",
         type: "village",
         addresstype: "village",
+        address: {
+          road: "Village Gate Boulevard",
+          house_number: "4090",
+          postcode: "V8E 0X9",
+          village: "Whistler",
+          state: "British Columbia",
+          country: "Kanada",
+        },
       },
     ]);
     expect(hits).toEqual([
-      { label: "Whistler, British Columbia, Kanada", lat: 50.11632, lng: -122.957356, kind: "village" },
+      {
+        label: "Whistler, British Columbia, Kanada",
+        lat: 50.11632,
+        lng: -122.957356,
+        kind: "village",
+        address: {
+          street: "Village Gate Boulevard",
+          house_number: "4090",
+          postcode: "V8E 0X9",
+          city: "Whistler",
+          region: "British Columbia",
+          country: "Kanada",
+        },
+      },
     ]);
   });
 
@@ -43,4 +64,14 @@ describe("Hilfsfunktionen", () => {
   it("rundet", () => expect(roundCoord(1.23456789)).toBe(1.234568));
   it("normalisiert den Cache-Schlüssel", () =>
     expect(cacheKey("  Banff   Springs  Hotel ")).toBe("banff springs hotel"));
+});
+
+describe("parseAddress", () => {
+  it("nimmt das erste vorhandene Feld und lässt Fehlendes leer", () => {
+    expect(parseAddress({ town: "Banff", county: "x", state: "Alberta", country: "Kanada" })).toEqual({
+      street: "", house_number: "", postcode: "", city: "Banff", region: "Alberta", country: "Kanada",
+    });
+    expect(parseAddress(undefined).city).toBe("");
+    expect(parseAddress({ road: 5 }).street).toBe("");
+  });
 });

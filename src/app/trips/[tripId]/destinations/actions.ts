@@ -15,6 +15,7 @@ const FIELDS = [
   "name", "arrival_date", "departure_date", "timezone", "description",
   "lodging_name", "lodging_address", "lodging_checkin", "lodging_booking_ref", "notes",
   "lat", "lng", "place_label",
+  "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country",
 ] as const;
 
 const text = (max: number) =>
@@ -39,6 +40,12 @@ const schema = z
     lat: z.string().trim(),
     lng: z.string().trim(),
     place_label: text(200),
+    addr_street: text(150),
+    addr_house_number: text(20),
+    addr_postcode: text(20),
+    addr_city: text(100),
+    addr_region: text(100),
+    addr_country: text(100),
   })
   .refine((d) => (d.lat === "") === (d.lng === ""), {
     message: "Der Standort ist unvollständig. Bitte neu suchen.",

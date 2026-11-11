@@ -5,9 +5,10 @@ import { useState, useTransition } from "react";
 import { searchPlaces } from "@/app/geocode/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { PlaceHit } from "@/lib/geocode";
+import { Field } from "@/components/ui/field";
+import { EMPTY_ADDRESS, type Address, type PlaceHit } from "@/lib/geocode";
 
-type Chosen = { lat: string; lng: string; label: string };
+type Chosen = { lat: string; lng: string; label: string; address: Address };
 
 /**
  * Adresssuche mit Trefferliste. Der gewählte Standort wird als versteckte Felder
@@ -21,6 +22,9 @@ export function LocationPicker({
   defaultQuery?: string;
 }) {
   const [chosen, setChosen] = useState<Chosen>(initial);
+  const [address, setAddress] = useState<Address>(initial.address);
+  const setField = (k: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setAddress((a) => ({ ...a, [k]: e.target.value }));
   const [query, setQuery] = useState(initial.label || defaultQuery);
   const [hits, setHits] = useState<PlaceHit[] | null>(null);
   const [message, setMessage] = useState("");
@@ -41,7 +45,8 @@ export function LocationPicker({
   }
 
   function pick(h: PlaceHit) {
-    setChosen({ lat: String(h.lat), lng: String(h.lng), label: h.label });
+    setChosen({ lat: String(h.lat), lng: String(h.lng), label: h.label, address: h.address });
+    setAddress(h.address);
     setHits(null);
     setMessage("");
   }
@@ -105,7 +110,7 @@ export function LocationPicker({
           </div>
           <button
             type="button"
-            onClick={() => setChosen({ lat: "", lng: "", label: "" })}
+            onClick={() => setChosen({ lat: "", lng: "", label: "", address: EMPTY_ADDRESS })}
             className="min-h-11 shrink-0 px-2 text-sm underline"
           >
             Entfernen
@@ -114,6 +119,37 @@ export function LocationPicker({
       ) : (
         <p className="text-sm text-neutral-500">Noch kein Standort. Ohne Standort erscheint der Ort nicht auf der Karte.</p>
       )}
+
+      <div className="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <p className="text-sm font-medium">Adresse</p>
+        <p className="-mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Wird bei der Suche ausgefüllt und lässt sich von Hand anpassen.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
+          <Field id="addr_street" label="Strasse">
+            <Input id="addr_street" name="addr_street" autoComplete="off" value={address.street} onChange={setField("street")} />
+          </Field>
+          <Field id="addr_house_number" label="Nr.">
+            <Input id="addr_house_number" name="addr_house_number" autoComplete="off" value={address.house_number} onChange={setField("house_number")} />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
+          <Field id="addr_postcode" label="PLZ">
+            <Input id="addr_postcode" name="addr_postcode" autoComplete="off" value={address.postcode} onChange={setField("postcode")} />
+          </Field>
+          <Field id="addr_city" label="Ort / Stadt">
+            <Input id="addr_city" name="addr_city" autoComplete="off" value={address.city} onChange={setField("city")} />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="addr_region" label="Provinz / Bundesstaat">
+            <Input id="addr_region" name="addr_region" autoComplete="off" value={address.region} onChange={setField("region")} />
+          </Field>
+          <Field id="addr_country" label="Land">
+            <Input id="addr_country" name="addr_country" autoComplete="off" value={address.country} onChange={setField("country")} />
+          </Field>
+        </div>
+      </div>
     </fieldset>
   );
 }
