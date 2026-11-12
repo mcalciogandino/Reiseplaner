@@ -176,12 +176,13 @@ function AddRow({ tripId, nodes, index }: { tripId: string; nodes: TimelineNode[
   if (ctx.to) transferParams.set("to", ctx.to);
   const transferHref = `/trips/${tripId}/transfers/new${transferParams.size ? `?${transferParams}` : ""}`;
   const placeHref = `/trips/${tripId}/destinations/new?pos=${ctx.position}`;
+  const aiHref = `/trips/${tripId}/ai?pos=${ctx.position}`;
 
   return (
     <div className="grid grid-cols-[1fr_3.5rem]">
       <div />
       <div className={railLine}>
-        <AddMenu placeHref={placeHref} transferHref={transferHref} />
+        <AddMenu placeHref={placeHref} transferHref={transferHref} aiHref={aiHref} />
       </div>
     </div>
   );

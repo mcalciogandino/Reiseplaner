@@ -16,7 +16,7 @@ const textarea =
 const fmtDate = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 const fmtLocal = (l: string) => `${fmtDate(l.slice(0, 10))} ${l.slice(11, 16)}`;
 
-export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolean }) {
+export function AiCapture({ tripId, enabled, position }: { tripId: string; enabled: boolean; position: number | null }) {
   const [proposal, propose, proposing] = useActionState<AiState, FormData>(
     proposeEntries.bind(null, tripId),
     null,
@@ -25,7 +25,9 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
     applyPlan.bind(null, tripId),
     null,
   );
-  const plan = applied?.plan ?? proposal?.plan;
+  const [dismissed, setDismissed] = useState<unknown>(null);
+  const shown = applied?.plan ?? proposal?.plan;
+  const plan = shown && shown !== dismissed ? shown : undefined;
   const message = applied?.message ?? proposal?.message;
   const text = proposal?.text ?? "";
   const [mode, setMode] = useState<"capture" | "search">("capture");
@@ -35,6 +37,7 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
     <div className="flex flex-col gap-4">
       <Card>
         <form action={propose} className="flex flex-col gap-3">
+          {position !== null && <input type="hidden" name="pos" value={position} />}
           <fieldset className="flex flex-wrap gap-2">
             <legend className="sr-only">Modus</legend>
             {(
@@ -114,6 +117,7 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
       {plan && (
         <form key={plan.mode + plan.summary} action={apply} className="flex flex-col gap-4">
           <input type="hidden" name="plan" value={JSON.stringify(plan)} />
+          {position !== null && <input type="hidden" name="pos" value={position} />}
           <input type="hidden" name="text" value={text} />
 
           <Card className="flex flex-col gap-4">
@@ -207,9 +211,9 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
               <Button type="submit" disabled={applying}>
                 {applying ? "Speichere …" : "Ausgewählte übernehmen"}
               </Button>
-              <Link href={`/trips/${tripId}/ai`} className="inline-flex min-h-11 items-center px-2 text-sm underline">
+              <Button type="button" variant="ghost" onClick={() => setDismissed(shown)}>
                 Verwerfen
-              </Link>
+              </Button>
             </div>
           </Card>
         </form>

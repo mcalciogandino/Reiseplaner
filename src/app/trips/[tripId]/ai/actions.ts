@@ -76,12 +76,25 @@ export async function proposeEntries(
     })),
   });
 
+  const position = readPosition(formData);
+  const hint =
+    position === null
+      ? ""
+      : `\n\nHinweis: Die neuen Einträge werden ${
+          position === 0
+            ? "ganz am Anfang der Route"
+            : position >= places.length
+              ? `am Ende der Route, nach «${places.at(-1)?.name ?? ""}»`
+              : `zwischen «${places[position - 1].name}» und «${places[position].name}»`
+        } eingefügt. Passe Verschiebungen und Daten dazu an.`;
+  const fullContext = context + hint;
+
   const settings = await loadSettings(supabase);
   const search = formData.get("mode") === "search";
   const creds = { apiKey: settings.anthropicKey, model: settings.model };
   const result = search
-    ? await researchFromText(text, context, creds)
-    : await proposeFromText(text, context, creds);
+    ? await researchFromText(text, fullContext, creds)
+    : await proposeFromText(text, fullContext, creds);
   if (!result.ok) return { text, message: result.message };
 
   const plan = await buildPlan(result.proposal, places, trip, geocode);
@@ -95,6 +108,35 @@ export async function proposeEntries(
     };
   }
   return { text, plan };
+}
+
+/** Einfügestelle aus dem Formular (Anzahl Orte davor), sonst null. */
+function readPosition(formData: FormData): number | null {
+  const v = String(formData.get("pos") ?? "");
+  return /^\d{1,3}$/.test(v) ? Number(v) : null;
+}
+
+/** Setzt die neuen Orte an die Stelle `position` der Routenreihenfolge und vergibt die Positionen lückenlos neu. */
+async function placeAt(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tripId: string,
+  newIds: string[],
+  position: number,
+) {
+  const { data: rows } = await supabase
+    .from("destinations")
+    .select("id")
+    .eq("trip_id", tripId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const fresh = new Set(newIds);
+  const ids = (rows ?? []).map((r) => r.id as string).filter((id) => !fresh.has(id));
+  ids.splice(Math.min(Math.max(position, 0), ids.length), 0, ...newIds);
+  const results = await Promise.all(
+    ids.map((id, order) => supabase.from("destinations").update({ sort_order: order }).eq("id", id).eq("trip_id", tripId)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) console.error("placeAt failed:", failed.error.code);
 }
 
 /** Schritt 2: die bestätigten Einträge speichern. Der Plan wird erneut geprüft, nie blind übernommen. */
@@ -179,6 +221,9 @@ export async function applyPlan(
     createdPlaces.push(data.id as string);
     refToId.set(p.ref, data.id as string);
   }
+
+  const position = readPosition(formData);
+  if (position !== null && createdPlaces.length) await placeAt(supabase, tripId, createdPlaces, position);
 
   /** Bekannter Ort → Verweis, sonst freier Ort mit Namen und Koordinaten. */
   const side = (e: PlanEndpoint) => {
