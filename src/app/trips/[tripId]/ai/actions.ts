@@ -10,6 +10,7 @@ import { planSchema, type Plan, type PlanEndpoint } from "@/lib/ai/plan";
 import { tripContext } from "@/lib/ai/prompt";
 import { storeRoute } from "@/lib/route-store";
 import { loadSettings } from "@/lib/settings";
+import { VEHICLE_COLUMNS, vehicleLine, type Vehicle } from "@/lib/vehicles";
 import { createClient } from "@/lib/supabase/server";
 import { KIND_LABELS, localToUtcIso, type TransferKind } from "@/lib/transfers";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips";
@@ -49,7 +50,7 @@ export async function proposeEntries(
   const { data: trip } = await supabase.from("trips").select(TRIP_COLUMNS).eq("id", tripId).maybeSingle<Trip>();
   if (!trip) return { text, message: "Reise nicht gefunden." };
 
-  const [{ data: stops }, { data: legs }] = await Promise.all([
+  const [{ data: stops }, { data: legs }, { data: cars }] = await Promise.all([
     supabase
       .from("destinations")
       .select("id, name, timezone, lat, lng, arrival_date, departure_date")
@@ -59,11 +60,13 @@ export async function proposeEntries(
       .from("transfers")
       .select("kind, from_destination_id, to_destination_id, from_place, to_place, depart_at")
       .eq("trip_id", tripId),
+    supabase.from("vehicles").select(VEHICLE_COLUMNS).eq("trip_id", tripId).returns<Vehicle[]>(),
   ]);
   const places = (stops ?? []) as (KnownPlace & { arrival_date: string | null; departure_date: string | null })[];
   const name = new Map(places.map((p) => [p.id, p.name]));
 
   const context = tripContext({
+    vehicles: (cars ?? []).map(vehicleLine),
     name: trip.name,
     start_date: trip.start_date,
     end_date: trip.end_date,
@@ -159,10 +162,14 @@ export async function applyPlan(
   const plan = parsed.data;
 
   const chosenPlaces = new Set(formData.getAll("place").map(String));
+  // Einzelne Verbindungen: Häkchen «transfer»; Varianten: je Gruppe genau ein Eintrag «grp_<n>».
   const chosenTransfers = new Set(formData.getAll("transfer").map(String));
+  for (const [key, value] of formData.entries()) if (key.startsWith("grp_") && value !== "") chosenTransfers.add(String(value));
+  const chosenVehicles = new Set(formData.getAll("vehicle").map(String));
   const places = plan.places.filter((p) => chosenPlaces.has(p.ref));
   const transfers = plan.transfers.filter((_, i) => chosenTransfers.has(String(i)));
-  if (places.length === 0 && transfers.length === 0) {
+  const vehicles = plan.vehicles.filter((_, i) => chosenVehicles.has(String(i)));
+  if (places.length === 0 && transfers.length === 0 && vehicles.length === 0) {
     return { text, plan, message: "Es ist nichts ausgewählt." };
   }
 
@@ -176,8 +183,10 @@ export async function applyPlan(
 
   const createdPlaces: string[] = [];
   const createdTransfers: string[] = [];
+  const createdVehicles: string[] = [];
   const refToId = new Map<string, string>();
   const rollback = async () => {
+    if (createdVehicles.length) await supabase.from("vehicles").delete().in("id", createdVehicles).eq("trip_id", tripId);
     if (createdTransfers.length) await supabase.from("transfers").delete().in("id", createdTransfers).eq("trip_id", tripId);
     if (createdPlaces.length) await supabase.from("destinations").delete().in("id", createdPlaces).eq("trip_id", tripId);
   };
@@ -209,6 +218,10 @@ export async function applyPlan(
         addr_country: p.addr_country,
         lodging_name: p.lodging_name,
         lodging_checkin: p.lodging_checkin,
+        lodging_checkout: p.lodging_checkout,
+        lodging_price: p.lodging_price,
+        lodging_currency: p.lodging_currency,
+        lodging_booking_ref: p.lodging_booking_ref,
         description: p.description ?? p.reason,
         notes: withSources(p.notes, p.sources),
         source: "ai",
@@ -262,6 +275,9 @@ export async function applyPlan(
       carrier: t.carrier,
       flight_number: t.flight_number,
       booking_ref: t.booking_ref,
+      price: t.price,
+      currency: t.currency,
+      notes: t.notes,
       source: "ai",
       source_ref: "chat",
       reviewed: true,
@@ -281,6 +297,34 @@ export async function applyPlan(
         to_lng: to.lng,
       },
     });
+  }
+
+  for (const v of vehicles) {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .insert({
+        trip_id: tripId,
+        kind: v.kind,
+        provider: v.provider,
+        vehicle_name: v.vehicle_name,
+        pickup_place: v.pickup_place,
+        pickup_at: v.pickup_local && v.pickup_tz ? localToUtcIso(v.pickup_local, v.pickup_tz) : null,
+        pickup_tz: v.pickup_local ? v.pickup_tz : null,
+        return_place: v.return_place,
+        return_at: v.return_local && v.return_tz ? localToUtcIso(v.return_local, v.return_tz) : null,
+        return_tz: v.return_local ? v.return_tz : null,
+        booking_ref: v.booking_ref,
+        price: v.price,
+        currency: v.currency,
+        notes: v.notes,
+        source: "ai",
+        source_ref: "chat",
+        reviewed: true,
+      })
+      .select("id")
+      .single();
+    if (error || !data) return fail("vehicle", error);
+    createdVehicles.push(data.id as string);
   }
 
   // Strassenrouten für Autofahrten: best effort, ein Fehler des Dienstes ändert nichts am Speichern.

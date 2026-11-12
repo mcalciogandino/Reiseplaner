@@ -22,7 +22,7 @@ import { moveDestination } from "@/app/trips/[tripId]/destinations/actions";
 
 const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
   flight: Plane, drive: Car, ferry: Ship, car_pickup: KeyRound, car_return: KeyRound,
-  train: TrainFront, other: Route,
+  train: TrainFront, taxi: Car, bus: Bus, transit: TrainFront, shuttle: Bus, other: Route,
 };
 const PLACE_ICONS: Record<PlaceKind, LucideIcon> = {
   city: Building2, village: House,
@@ -222,6 +222,7 @@ function PlaceCard({
             <p>
               Unterkunft: {d.lodging_name}
               {d.lodging_checkin && ` (Check-in ab ${d.lodging_checkin.slice(0, 5)})`}
+              {d.lodging_price !== null && ` · ${d.lodging_price} ${d.lodging_currency ?? ""}`}
             </p>
           )}
           {tz && <p>{tz}</p>}
@@ -266,6 +267,7 @@ function TransferCard({
     t.flight_number,
     minutes !== null && minutes >= 0 ? formatDuration(minutes) : null,
     t.distance_km !== null ? `${t.distance_km} km` : null,
+    t.price !== null ? `${t.price} ${t.currency ?? ""}`.trim() : null,
     t.booking_ref ? `Buchung ${t.booking_ref}` : null,
   ].filter(Boolean);
   const mapsUrl = transferMapsUrl(t, destinations);

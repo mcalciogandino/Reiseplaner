@@ -15,7 +15,7 @@ export type DestinationFormState = {
 
 const FIELDS = [
   "name", "kind", "arrival_date", "departure_date", "timezone", "description",
-  "lodging_name", "lodging_checkin", "lodging_booking_ref", "notes",
+  "lodging_name", "lodging_checkin", "lodging_checkout", "lodging_price", "lodging_currency", "lodging_booking_ref", "notes",
   "lat", "lng", "place_label",
   "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country",
 ] as const;
@@ -41,6 +41,19 @@ const schema = z
     lodging_checkin: z
       .union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Bitte eine Uhrzeit wählen.")])
       .transform((v) => v || null),
+    lodging_checkout: z
+      .union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Bitte eine Uhrzeit wählen.")])
+      .transform((v) => v || null),
+    lodging_price: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || (/^\d{1,7}([.,]\d{1,2})?$/.test(v)), "Bitte einen Preis wie 150 oder 149.90 eingeben.")
+      .transform((v) => (v === "" ? null : Number(v.replace(",", ".")))),
+    lodging_currency: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || /^[A-Za-z]{3}$/.test(v), "Bitte die Währung mit drei Buchstaben angeben, z. B. CAD.")
+      .transform((v) => (v === "" ? null : v.toUpperCase())),
     lodging_booking_ref: text(100),
     notes: text(2000),
     lat: z.string().trim(),
@@ -66,6 +79,7 @@ const schema = z
     lat: d.lat === "" ? null : roundCoord(Number(d.lat)),
     lng: d.lng === "" ? null : roundCoord(Number(d.lng)),
     place_label: d.lat === "" ? null : d.place_label,
+    lodging_currency: d.lodging_price !== null ? (d.lodging_currency ?? "CAD") : d.lodging_currency,
   }))
   .refine(
     (d) => !d.arrival_date || !d.departure_date || d.departure_date >= d.arrival_date,

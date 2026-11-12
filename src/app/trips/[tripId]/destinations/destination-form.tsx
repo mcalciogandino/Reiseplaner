@@ -176,6 +176,15 @@ export function DestinationForm({
           <Field id="lodging_checkin" label="Check-in ab">
             <TimeField id="lodging_checkin" name="lodging_checkin" defaultValue={v("lodging_checkin").slice(0, 5)} />
           </Field>
+          <Field id="lodging_checkout" label="Check-out bis">
+            <TimeField id="lodging_checkout" name="lodging_checkout" defaultValue={v("lodging_checkout").slice(0, 5)} />
+          </Field>
+          <Field id="lodging_price" label="Preis (gesamt)">
+            <Input id="lodging_price" name="lodging_price" inputMode="decimal" defaultValue={v("lodging_price")} placeholder="z. B. 150" />
+          </Field>
+          <Field id="lodging_currency" label="Währung">
+            <Input id="lodging_currency" name="lodging_currency" maxLength={3} defaultValue={v("lodging_currency")} placeholder="CAD" />
+          </Field>
           <Field id="lodging_booking_ref" label="Buchungsnummer">
             <Input id="lodging_booking_ref" name="lodging_booking_ref" defaultValue={v("lodging_booking_ref")} />
           </Field>
