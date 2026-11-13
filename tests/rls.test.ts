@@ -184,6 +184,19 @@ describe("RLS: nicht angemeldet", () => {
   });
 });
 
+describe("Budget", () => {
+  it("kennt die Kategorie «Transport» und lehnt unbekannte ab", async () => {
+    await as(A, async (q) => {
+      const [t] = await q(`insert into trips (name, start_date, end_date, owner_id) values ('B', '2027-01-01', '2027-01-10', '${A}') returning id`);
+      const id = (t as { id: string }).id;
+      await q(`insert into budget_entries (trip_id, category, description, planned_amount) values ('${id}', 'transport', 'Taxi', 40)`);
+      await expect(
+        q(`insert into budget_entries (trip_id, category, description) values ('${id}', 'ufo', 'x')`),
+      ).rejects.toThrow();
+    });
+  });
+});
+
 describe("Mietfahrzeuge", () => {
   it("gehören zur Reise: fremde sehen und ändern nichts", async () => {
     let tripId = "";

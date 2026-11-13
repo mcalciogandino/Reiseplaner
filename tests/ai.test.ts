@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlan, type GeoHit, type Geocoder, type KnownPlace } from "../src/lib/ai/build-plan";
-import { proposeFromText, researchFromText, describePlace, reviewTrip, suggestPacking } from "../src/lib/ai/claude";
+import { proposeFromText, researchFromText, describePlace, reviewTrip, suggestBudget, suggestPacking } from "../src/lib/ai/claude";
 import { planSchema, proposalSchema } from "../src/lib/ai/plan";
 import { TOOL_NAME, tripContext } from "../src/lib/ai/prompt";
 
@@ -302,5 +302,16 @@ describe("Buchungen: Preis, Varianten, Fahrzeuge", () => {
     expect(plan.transfers[0]).toMatchObject({ price: 40, currency: "CAD" });
     expect(plan.vehicles[0]).toMatchObject({ kind: "camper", pickup_tz: "America/Vancouver", return_tz: "America/Vancouver", currency: "CAD" });
     expect(planSchema.safeParse(plan).success).toBe(true);
+  });
+});
+
+describe("suggestBudget", () => {
+  const reply = (input: unknown) =>
+    ({ messages: { create: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_budget", input }] }) } }) as never;
+  it("liefert Posten und lehnt unbekannte Kategorien ab", async () => {
+    const ok = await suggestBudget("ctx", { apiKey: "k", model: "m" }, reply({ items: [{ category: "fuel", description: "Benzin", planned_amount: 400 }] }));
+    expect(ok).toMatchObject({ ok: true, data: { items: [{ category: "fuel", planned_amount: 400 }] } });
+    const bad = await suggestBudget("ctx", { apiKey: "k", model: "m" }, reply({ items: [{ category: "ufo", description: "x", planned_amount: 1 }] }));
+    expect(bad).toMatchObject({ ok: false });
   });
 });

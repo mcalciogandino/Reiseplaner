@@ -458,3 +458,52 @@ export async function suggestDayProgram(context: string, creds: Creds, client?: 
   );
   return res;
 }
+
+const budgetSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        category: z.enum(["flights", "lodging", "camping", "car", "fuel", "transport", "activities", "passes", "insurance", "food", "other"]),
+        description: z.string().trim().min(1).max(150),
+        planned_amount: z.number().min(0).max(1_000_000),
+        currency: z.string().trim().regex(/^[A-Za-z]{3}$/).nullish(),
+      }),
+    )
+    .max(12)
+    .default([]),
+});
+export type BudgetSuggestion = z.infer<typeof budgetSchema>["items"][number];
+
+/** Grobe Kostenschätzung für Posten, die noch nicht im Budget stehen. */
+export async function suggestBudget(context: string, creds: Creds, client?: MessagesClient) {
+  return forcedTool(
+    creds,
+    client,
+    `Du bist Reiseberater und schätzt über das Werkzeug "propose_budget" Kosten für zwei Reisende. Schlage nur Posten vor, die noch nicht im Budget stehen (z. B. Treibstoff, Essen, Eintritte und Pässe, Versicherung, Aktivitäten, Transport vor Ort). Rechne mit Länge der Reise, Orten und geplanter Route; je Posten ein Gesamtbetrag in der Reisewährung (meist CAD). Das sind grobe Richtwerte aus deinem Wissen, keine belegten Preise: Beschreibe sie knapp mit der Annahme dahinter, z. B. «Essen: 2 Personen, 12 Tage, ca. 90 pro Tag». Höchstens 10 Posten. Antworte auf Deutsch.`,
+    context,
+    {
+      name: "propose_budget",
+      description: "Schlägt Budgetposten mit geschätzten Beträgen vor.",
+      input_schema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                category: { type: "string", enum: ["flights", "lodging", "camping", "car", "fuel", "transport", "activities", "passes", "insurance", "food", "other"] },
+                description: { type: "string" },
+                planned_amount: { type: "number" },
+                currency: { type: ["string", "null"] },
+              },
+              required: ["category", "description", "planned_amount"],
+            },
+          },
+        },
+        required: ["items"],
+      },
+    },
+    budgetSchema,
+  );
+}
