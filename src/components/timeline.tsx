@@ -22,7 +22,7 @@ import { moveDestination } from "@/app/trips/[tripId]/destinations/actions";
 
 const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
   flight: Plane, drive: Car, ferry: Ship, car_pickup: KeyRound, car_return: KeyRound,
-  train: TrainFront, other: Route,
+  train: TrainFront, taxi: Car, bus: Bus, transit: TrainFront, shuttle: Bus, other: Route,
 };
 const PLACE_ICONS: Record<PlaceKind, LucideIcon> = {
   city: Building2, village: House,
@@ -176,12 +176,13 @@ function AddRow({ tripId, nodes, index }: { tripId: string; nodes: TimelineNode[
   if (ctx.to) transferParams.set("to", ctx.to);
   const transferHref = `/trips/${tripId}/transfers/new${transferParams.size ? `?${transferParams}` : ""}`;
   const placeHref = `/trips/${tripId}/destinations/new?pos=${ctx.position}`;
+  const aiHref = `/trips/${tripId}/ai?pos=${ctx.position}`;
 
   return (
     <div className="grid grid-cols-[1fr_3.5rem]">
       <div />
       <div className={railLine}>
-        <AddMenu placeHref={placeHref} transferHref={transferHref} />
+        <AddMenu placeHref={placeHref} transferHref={transferHref} aiHref={aiHref} />
       </div>
     </div>
   );
@@ -201,10 +202,14 @@ function PlaceCard({
   ].filter(Boolean).join(", ");
 
   return (
-    <Card className="flex items-start gap-3">
+    <Card className="relative flex items-start gap-3 transition-colors hover:border-red-700">
       <div className="min-w-0 flex-1">
         <p className="text-xs text-neutral-500">{PLACE_KIND_LABELS[d.kind] ?? "Ort"}</p>
-        <Link href={`/trips/${tripId}/destinations/${d.id}`} className="font-semibold underline-offset-2 hover:underline">
+        {/* Der Link deckt über ::after die ganze Karte ab; die Pfeiltasten liegen darüber. */}
+        <Link
+          href={`/trips/${tripId}/destinations/${d.id}`}
+          className="font-semibold after:absolute after:inset-0 after:rounded-xl after:content-['']"
+        >
           {d.name}
         </Link>
         <div className="mt-1 space-y-0.5 text-sm text-neutral-600 dark:text-neutral-400">
@@ -221,13 +226,14 @@ function PlaceCard({
             <p>
               Unterkunft: {d.lodging_name}
               {d.lodging_checkin && ` (Check-in ab ${d.lodging_checkin.slice(0, 5)})`}
+              {d.lodging_price !== null && ` · ${d.lodging_price} ${d.lodging_currency ?? ""}`}
             </p>
           )}
           {tz && <p>{tz}</p>}
         </div>
       </div>
       {canMove && (
-        <div className="flex shrink-0 gap-1">
+        <div className="relative z-10 flex shrink-0 gap-1">
           <MoveButton tripId={tripId} destId={d.id} direction="up" disabled={first} />
           <MoveButton tripId={tripId} destId={d.id} direction="down" disabled={last} />
         </div>
@@ -265,6 +271,7 @@ function TransferCard({
     t.flight_number,
     minutes !== null && minutes >= 0 ? formatDuration(minutes) : null,
     t.distance_km !== null ? `${t.distance_km} km` : null,
+    t.price !== null ? `${t.price} ${t.currency ?? ""}`.trim() : null,
     t.booking_ref ? `Buchung ${t.booking_ref}` : null,
   ].filter(Boolean);
   const mapsUrl = transferMapsUrl(t, destinations);

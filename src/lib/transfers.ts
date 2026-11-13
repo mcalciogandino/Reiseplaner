@@ -2,7 +2,8 @@ import { TZDate } from "@date-fns/tz";
 import { format, parseISO } from "date-fns";
 
 export type TransferKind =
-  | "flight" | "drive" | "ferry" | "car_pickup" | "car_return" | "train" | "other";
+  | "flight" | "drive" | "ferry" | "car_pickup" | "car_return" | "train"
+  | "taxi" | "bus" | "transit" | "shuttle" | "other";
 
 export const KIND_LABELS: Record<TransferKind, string> = {
   flight: "Flug",
@@ -11,6 +12,10 @@ export const KIND_LABELS: Record<TransferKind, string> = {
   car_pickup: "Mietwagen-Übernahme",
   car_return: "Mietwagen-Rückgabe",
   train: "Zug",
+  taxi: "Taxi",
+  bus: "Bus",
+  transit: "S-Bahn / Tram / Metro",
+  shuttle: "Shuttle",
   other: "Sonstiges",
 };
 export const KINDS = Object.keys(KIND_LABELS) as TransferKind[];
@@ -38,10 +43,13 @@ export type Transfer = {
   route_geojson: unknown; // GeoJSON-LineString (OpenRouteService) oder null
   route_distance_m: number | null;
   route_duration_s: number | null;
+  price: number | null;
+  currency: string | null;
+  notes: string | null;
 };
 
 export const TRANSFER_COLUMNS =
-  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s";
+  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s, price, currency, notes";
 
 /** Wandelt "2027-07-01T10:30" in Ortszeit der Zeitzone in einen UTC-ISO-String. */
 export function localToUtcIso(local: string, timeZone: string): string {

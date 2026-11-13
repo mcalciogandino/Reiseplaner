@@ -352,6 +352,15 @@ export function TransferForm({
         <Field id="booking_ref" label="Buchungsnummer">
           <Input id="booking_ref" name="booking_ref" defaultValue={v("booking_ref")} />
         </Field>
+        <Field id="price" label="Preis" hint="Für alle zusammen">
+          <Input id="price" name="price" inputMode="decimal" defaultValue={v("price")} placeholder="z. B. 40" />
+        </Field>
+        <Field id="currency" label="Währung">
+          <Input id="currency" name="currency" maxLength={3} defaultValue={v("currency")} placeholder="CAD" />
+        </Field>
+        <Field id="notes" label="Hinweis" hint="z. B. Linie, Takt, Haltestelle">
+          <Input id="notes" name="notes" maxLength={500} defaultValue={v("notes")} />
+        </Field>
       </div>
 
       {state?.message && <p role="alert" className="text-sm text-red-700">{state.message}</p>}

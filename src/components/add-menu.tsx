@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Plus, Route } from "lucide-react";
+import { MapPin, Plus, Route, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -8,7 +8,15 @@ const item =
   "flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800";
 
 /** «+» in der Symbolleiste: kleines Menü, das sich bei Klick daneben, mit Escape oder nach der Wahl schliesst. */
-export function AddMenu({ placeHref, transferHref }: { placeHref: string; transferHref: string }) {
+export function AddMenu({
+  placeHref,
+  transferHref,
+  aiHref,
+}: {
+  placeHref: string;
+  transferHref: string;
+  aiHref: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,6 +47,9 @@ export function AddMenu({ placeHref, transferHref }: { placeHref: string; transf
       </button>
       {open && (
         <div className="absolute right-9 top-1/2 z-20 -translate-y-1/2 rounded-lg border border-neutral-300 bg-background p-1 shadow-lg dark:border-neutral-700">
+          <Link href={aiHref} className={item} onClick={() => setOpen(false)}>
+            <Sparkles aria-hidden="true" className="size-4" /> Mit KI einfügen
+          </Link>
           <Link href={placeHref} className={item} onClick={() => setOpen(false)}>
             <MapPin aria-hidden="true" className="size-4" /> Ort einfügen
           </Link>

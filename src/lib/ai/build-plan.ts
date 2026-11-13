@@ -1,7 +1,7 @@
 import type { Address } from "../geocode";
 import { estimateTransfer, type Point } from "../estimate";
 import { localToUtcIso, utcToLocalInput, type TransferKind } from "../transfers";
-import type { Plan, PlanEndpoint, PlanPlace, PlanTransfer, Proposal } from "./plan";
+import type { Plan, PlanEndpoint, PlanPlace, PlanTransfer, PlanVehicle, Proposal } from "./plan";
 
 export type KnownPlace = {
   id: string;
@@ -22,6 +22,7 @@ export type GeoHit = {
 export type Geocoder = (query: string) => Promise<GeoHit | null>;
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+const cur = (c: string | null | undefined) => (c && /^[A-Za-z]{3}$/.test(c) ? c.toUpperCase() : null);
 /** Nur echte http(s)-Adressen, ohne Doppelte. */
 function webUrls(list: readonly string[] | null | undefined): string[] {
   const out: string[] = [];
@@ -83,6 +84,10 @@ export async function buildPlan(
       addr_country: orNull(hit?.address.country),
       lodging_name: orNull(p.lodging_name),
       lodging_checkin: p.lodging_checkin ?? null,
+      lodging_checkout: p.lodging_checkout ?? null,
+      lodging_price: p.lodging_price ?? null,
+      lodging_currency: p.lodging_price != null ? (cur(p.lodging_currency) ?? "CAD") : null,
+      lodging_booking_ref: orNull(p.lodging_booking_ref),
       description: orNull(p.description),
       notes: orNull(p.notes),
       reason: orNull(p.reason),
@@ -184,10 +189,50 @@ export async function buildPlan(
       carrier: orNull(t.carrier),
       flight_number: orNull(t.flight_number),
       booking_ref: orNull(t.booking_ref),
+      group: orNull(t.group),
+      price: t.price ?? null,
+      currency: t.price != null ? (cur(t.currency) ?? "CAD") : null,
+      notes: orNull(t.notes),
       estimated,
       warnings,
     });
   }
 
-  return { mode: "capture", summary: proposal.summary, places, transfers, questions: proposal.questions };
+  // Mietfahrzeuge: Zeitzone aus dem Abholort, sonst aus dem ersten Ort mit Zeitzone.
+  const fallbackTz = places.find((p) => p.timezone)?.timezone ?? null;
+  const vehicles: PlanVehicle[] = [];
+  for (const v of proposal.vehicles) {
+    const warnings: string[] = [];
+    const tzOf = async (place: string | null | undefined) => {
+      const q = place?.trim();
+      const hit = q ? await geocode(q) : null;
+      return hit?.timezone ?? fallbackTz;
+    };
+    const pickupTz = v.pickup_local ? await tzOf(v.pickup_place) : null;
+    const returnTz = v.return_local ? ((await tzOf(v.return_place)) ?? pickupTz) : null;
+    if ((v.pickup_local && !pickupTz) || (v.return_local && !returnTz)) {
+      warnings.push("Zeitzone nicht ermittelt: Zeiten bitte prüfen.");
+    }
+    if (v.pickup_local && v.return_local && v.return_local <= v.pickup_local) {
+      warnings.push("Die Rückgabe liegt nicht nach der Übernahme.");
+    }
+    vehicles.push({
+      kind: v.kind,
+      provider: orNull(v.provider),
+      vehicle_name: orNull(v.vehicle_name),
+      pickup_place: orNull(v.pickup_place),
+      pickup_local: pickupTz ? (v.pickup_local ?? null) : null,
+      pickup_tz: pickupTz,
+      return_place: orNull(v.return_place),
+      return_local: returnTz ? (v.return_local ?? null) : null,
+      return_tz: returnTz,
+      booking_ref: orNull(v.booking_ref),
+      price: v.price ?? null,
+      currency: v.price != null ? (cur(v.currency) ?? "CAD") : null,
+      notes: orNull(v.notes),
+      warnings,
+    });
+  }
+
+  return { mode: "capture", summary: proposal.summary, places, transfers, vehicles, questions: proposal.questions };
 }

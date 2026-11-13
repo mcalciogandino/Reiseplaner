@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPlan, type GeoHit, type Geocoder, type KnownPlace } from "../src/lib/ai/build-plan";
-import { proposeFromText, researchFromText, describePlace, reviewTrip, suggestPacking } from "../src/lib/ai/claude";
+import { proposeFromText, researchFromText, describePlace, reviewTrip, suggestBudget, suggestPacking } from "../src/lib/ai/claude";
 import { planSchema, proposalSchema } from "../src/lib/ai/plan";
 import { TOOL_NAME, tripContext } from "../src/lib/ai/prompt";
 
@@ -30,7 +30,7 @@ const proposal = proposalSchema.parse({
 
 describe("proposalSchema", () => {
   it("füllt fehlende Listen und lehnt unbekannte Arten ab", () => {
-    expect(proposalSchema.parse({})).toEqual({ summary: "", places: [], transfers: [], questions: [] });
+    expect(proposalSchema.parse({})).toEqual({ summary: "", places: [], transfers: [], vehicles: [], questions: [] });
     expect(proposalSchema.safeParse({ places: [{ ref: "p1", name: "X", kind: "ufo" }] }).success).toBe(false);
     expect(proposalSchema.safeParse({ transfers: [{ kind: "teleport" }] }).success).toBe(false);
   });
@@ -279,5 +279,39 @@ describe("describePlace", () => {
   });
   it("meldet fehlenden Schlüssel", async () => {
     expect(await describePlace(info, { apiKey: null, model: "m" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("Buchungen: Preis, Varianten, Fahrzeuge", () => {
+  const trip = { start_date: "2027-01-20", end_date: "2027-02-05" };
+  it("übernimmt Unterkunftspreis, Gruppen und Fahrzeuge", async () => {
+    const proposal = proposalSchema.parse({
+      places: [
+        { ref: "p1", name: "Hotel XYZ", kind: "hotel", arrival_date: "2027-01-27", departure_date: "2027-01-29", lodging_name: "Hotel XYZ", lodging_price: 50, lodging_checkout: "11:00" },
+      ],
+      transfers: [
+        { kind: "taxi", from_place: "Flughafen YVR", to_ref: "p1", group: "g1", price: 40, currency: "cad" },
+        { kind: "transit", from_place: "Flughafen YVR", to_ref: "p1", group: "g1", price: 9.5, notes: "Canada Line" },
+      ],
+      vehicles: [{ kind: "camper", provider: "Avis", pickup_place: "Vancouver", pickup_local: "2027-01-30T10:00", return_local: "2027-02-04T10:00", price: 900 }],
+    });
+    const geo = async () => ({ lat: 49.28, lng: -123.12, label: "Vancouver", timezone: "America/Vancouver", address: {} }) as never;
+    const plan = await buildPlan(proposal, [], trip, geo);
+    expect(plan.places[0]).toMatchObject({ lodging_price: 50, lodging_currency: "CAD", lodging_checkout: "11:00" });
+    expect(plan.transfers.map((t) => t.group)).toEqual(["g1", "g1"]);
+    expect(plan.transfers[0]).toMatchObject({ price: 40, currency: "CAD" });
+    expect(plan.vehicles[0]).toMatchObject({ kind: "camper", pickup_tz: "America/Vancouver", return_tz: "America/Vancouver", currency: "CAD" });
+    expect(planSchema.safeParse(plan).success).toBe(true);
+  });
+});
+
+describe("suggestBudget", () => {
+  const reply = (input: unknown) =>
+    ({ messages: { create: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_budget", input }] }) } }) as never;
+  it("liefert Posten und lehnt unbekannte Kategorien ab", async () => {
+    const ok = await suggestBudget("ctx", { apiKey: "k", model: "m" }, reply({ items: [{ category: "fuel", description: "Benzin", planned_amount: 400 }] }));
+    expect(ok).toMatchObject({ ok: true, data: { items: [{ category: "fuel", planned_amount: 400 }] } });
+    const bad = await suggestBudget("ctx", { apiKey: "k", model: "m" }, reply({ items: [{ category: "ufo", description: "x", planned_amount: 1 }] }));
+    expect(bad).toMatchObject({ ok: false });
   });
 });

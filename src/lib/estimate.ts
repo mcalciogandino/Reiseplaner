@@ -23,6 +23,10 @@ const PROFILES: Partial<Record<TransferKind, { detour: number; kmh: number; extr
   drive: { detour: 1.3, kmh: 75, extraMin: 0 },
   train: { detour: 1.25, kmh: 90, extraMin: 0 },
   ferry: { detour: 1.1, kmh: 30, extraMin: 0 },
+  taxi: { detour: 1.3, kmh: 50, extraMin: 5 },
+  bus: { detour: 1.3, kmh: 35, extraMin: 10 },
+  transit: { detour: 1.25, kmh: 35, extraMin: 10 },
+  shuttle: { detour: 1.3, kmh: 45, extraMin: 10 },
 };
 
 export type Estimate = { distanceKm: number; durationMin: number };

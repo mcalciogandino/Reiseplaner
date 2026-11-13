@@ -20,6 +20,10 @@ const proposedPlace = z.object({
   departure_date: date.nullish(),
   lodging_name: z.string().trim().max(150).nullish(),
   lodging_checkin: time.nullish(),
+  lodging_checkout: time.nullish(),
+  lodging_price: z.number().min(0).max(1_000_000).nullish(),
+  lodging_currency: z.string().trim().regex(/^[A-Za-z]{3}$/).nullish(),
+  lodging_booking_ref: z.string().trim().max(100).nullish(),
   description: z.string().trim().max(2000).nullish(),
   notes: z.string().trim().max(2000).nullish(),
   /** Nur im Suchmodus: warum der Ort empfohlen wird, und Quellen (Web-Adressen). */
@@ -40,12 +44,32 @@ const proposedTransfer = z.object({
   booking_ref: z.string().trim().max(100).nullish(),
   distance_km: z.number().int().min(0).max(100000).nullish(),
   duration_min: z.number().int().min(0).max(100000).nullish(),
+  /** Gleiche Gruppe = Varianten derselben Verbindung (z. B. Taxi / Bus / Schnellbahn); genau eine wird gewählt. */
+  group: z.string().trim().max(40).nullish(),
+  price: z.number().min(0).max(1_000_000).nullish(),
+  currency: z.string().trim().regex(/^[A-Za-z]{3}$/).nullish(),
+  notes: z.string().trim().max(500).nullish(),
+});
+
+const proposedVehicle = z.object({
+  kind: z.enum(["car", "camper", "other"]),
+  provider: z.string().trim().max(100).nullish(),
+  vehicle_name: z.string().trim().max(100).nullish(),
+  pickup_place: z.string().trim().max(150).nullish(),
+  pickup_local: localDateTime.nullish(),
+  return_place: z.string().trim().max(150).nullish(),
+  return_local: localDateTime.nullish(),
+  booking_ref: z.string().trim().max(100).nullish(),
+  price: z.number().min(0).max(1_000_000).nullish(),
+  currency: z.string().trim().regex(/^[A-Za-z]{3}$/).nullish(),
+  notes: z.string().trim().max(500).nullish(),
 });
 
 export const proposalSchema = z.object({
   summary: z.string().trim().max(1000).default(""),
   places: z.array(proposedPlace).max(30).default([]),
   transfers: z.array(proposedTransfer).max(40).default([]),
+  vehicles: z.array(proposedVehicle).max(5).default([]),
   questions: z.array(z.string().trim().max(300)).max(10).default([]),
 });
 export type Proposal = z.infer<typeof proposalSchema>;
@@ -73,6 +97,10 @@ export const planPlaceSchema = z.object({
   addr_country: nullableText(100),
   lodging_name: nullableText(150),
   lodging_checkin: time.nullable(),
+  lodging_checkout: time.nullable().default(null),
+  lodging_price: z.number().min(0).max(1_000_000).nullable().default(null),
+  lodging_currency: z.string().regex(/^[A-Z]{3}$/).nullable().default(null),
+  lodging_booking_ref: nullableText(100).default(null),
   description: nullableText(2000),
   notes: nullableText(2000),
   reason: nullableText(600).default(null),
@@ -106,11 +134,33 @@ export const planTransferSchema = z.object({
   carrier: nullableText(100),
   flight_number: nullableText(30),
   booking_ref: nullableText(100),
+  group: nullableText(40).default(null),
+  price: z.number().min(0).max(1_000_000).nullable().default(null),
+  currency: z.string().regex(/^[A-Z]{3}$/).nullable().default(null),
+  notes: nullableText(500).default(null),
   /** true: Dauer/Distanz/Ankunft sind geschätzt, nicht aus dem Text. */
   estimated: z.boolean(),
   warnings: z.array(z.string().max(300)).max(10),
 });
 export type PlanTransfer = z.infer<typeof planTransferSchema>;
+
+export const planVehicleSchema = z.object({
+  kind: z.enum(["car", "camper", "other"]),
+  provider: nullableText(100),
+  vehicle_name: nullableText(100),
+  pickup_place: nullableText(150),
+  pickup_local: localDateTime.nullable(),
+  pickup_tz: zone,
+  return_place: nullableText(150),
+  return_local: localDateTime.nullable(),
+  return_tz: zone,
+  booking_ref: nullableText(100),
+  price: z.number().min(0).max(1_000_000).nullable(),
+  currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+  notes: nullableText(500),
+  warnings: z.array(z.string().max(300)).max(10),
+});
+export type PlanVehicle = z.infer<typeof planVehicleSchema>;
 
 export const planSchema = z.object({
   /** capture: aus Text erfasst (vorausgewählt); search: Recherche-Vorschläge (nichts vorausgewählt). */
@@ -118,6 +168,7 @@ export const planSchema = z.object({
   summary: z.string().max(1000),
   places: z.array(planPlaceSchema).max(30),
   transfers: z.array(planTransferSchema).max(40),
+  vehicles: z.array(planVehicleSchema).max(5).default([]),
   questions: z.array(z.string().max(300)).max(10),
 });
 export type Plan = z.infer<typeof planSchema>;

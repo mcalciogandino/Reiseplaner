@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { PlanEndpoint } from "@/lib/ai/plan";
+import type { PlanEndpoint, PlanTransfer } from "@/lib/ai/plan";
 import { PLACE_KIND_LABELS, type PlaceKind } from "@/lib/destinations";
 import { KIND_LABELS, formatDuration, type TransferKind } from "@/lib/transfers";
+import { VEHICLE_LABELS } from "@/lib/vehicles";
 import { applyPlan, proposeEntries, type AiState } from "./actions";
 
 const textarea =
@@ -16,7 +17,7 @@ const textarea =
 const fmtDate = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 const fmtLocal = (l: string) => `${fmtDate(l.slice(0, 10))} ${l.slice(11, 16)}`;
 
-export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolean }) {
+export function AiCapture({ tripId, enabled, position }: { tripId: string; enabled: boolean; position: number | null }) {
   const [proposal, propose, proposing] = useActionState<AiState, FormData>(
     proposeEntries.bind(null, tripId),
     null,
@@ -25,16 +26,20 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
     applyPlan.bind(null, tripId),
     null,
   );
-  const plan = applied?.plan ?? proposal?.plan;
+  const [dismissed, setDismissed] = useState<unknown>(null);
+  const shown = applied?.plan ?? proposal?.plan;
+  const plan = shown && shown !== dismissed ? shown : undefined;
   const message = applied?.message ?? proposal?.message;
   const text = proposal?.text ?? "";
   const [mode, setMode] = useState<"capture" | "search">("capture");
   const searching = mode === "search";
+  const { singles, groups } = splitTransfers(plan?.transfers ?? []);
 
   return (
     <div className="flex flex-col gap-4">
       <Card>
         <form action={propose} className="flex flex-col gap-3">
+          {position !== null && <input type="hidden" name="pos" value={position} />}
           <fieldset className="flex flex-wrap gap-2">
             <legend className="sr-only">Modus</legend>
             {(
@@ -114,6 +119,7 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
       {plan && (
         <form key={plan.mode + plan.summary} action={apply} className="flex flex-col gap-4">
           <input type="hidden" name="plan" value={JSON.stringify(plan)} />
+          {position !== null && <input type="hidden" name="pos" value={position} />}
           <input type="hidden" name="text" value={text} />
 
           <Card className="flex flex-col gap-4">
@@ -150,6 +156,9 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
                           ? `${p.arrival_date ? fmtDate(p.arrival_date) : "?"} – ${p.departure_date ? fmtDate(p.departure_date) : "?"}`
                           : "Datum offen"}
                         {p.lodging_name && ` · Unterkunft: ${p.lodging_name}`}
+                        {p.lodging_price !== null && ` · ${p.lodging_price} ${p.lodging_currency ?? ""}`}
+                        {p.lodging_checkin && ` · Check-in ab ${p.lodging_checkin}`}
+                        {p.lodging_checkout && ` · Check-out bis ${p.lodging_checkout}`}
                       </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
                         {p.lat !== null ? (p.place_label ?? "Standort gefunden") : "Kein Standort"}
@@ -172,30 +181,54 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
             )}
 
             {plan.transfers.length > 0 && (
-              <section aria-labelledby="ai-transfers" className="flex flex-col gap-2">
-                <h3 id="ai-transfers" className="text-sm font-semibold">Verschiebungen ({plan.transfers.length})</h3>
+              <section aria-labelledby="ai-transfers" className="flex flex-col gap-3">
+                <h3 id="ai-transfers" className="text-sm font-semibold">Verschiebungen</h3>
                 <ul className="flex flex-col gap-2">
-                  {plan.transfers.map((t, i) => (
+                  {singles.map(({ t, i }) => (
                     <Row key={i} name="transfer" value={String(i)} warnings={t.warnings} checked={plan.mode === "capture"}>
+                      <TransferBody t={t} />
+                    </Row>
+                  ))}
+                </ul>
+                {groups.map(([key, members]) => (
+                  <fieldset key={key} className="flex flex-col gap-2 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+                    <legend className="px-1 text-sm font-medium">
+                      Wie kommt ihr von {endpointName(members[0].t.from)} nach {endpointName(members[0].t.to)}? Wähle eine Möglichkeit
+                    </legend>
+                    <ul className="flex flex-col gap-2">
+                      {members.map(({ t, i }, n) => (
+                        <Row key={i} name={`grp_${key}`} value={String(i)} type="radio" warnings={t.warnings} checked={plan.mode === "capture" && n === 0}>
+                          <TransferBody t={t} />
+                        </Row>
+                      ))}
+                      <Row name={`grp_${key}`} value="" type="radio" warnings={[]} checked={false}>
+                        <p className="text-sm">Keine davon übernehmen</p>
+                      </Row>
+                    </ul>
+                  </fieldset>
+                ))}
+              </section>
+            )}
+
+            {plan.vehicles.length > 0 && (
+              <section aria-labelledby="ai-vehicles" className="flex flex-col gap-2">
+                <h3 id="ai-vehicles" className="text-sm font-semibold">Mietfahrzeuge ({plan.vehicles.length})</h3>
+                <ul className="flex flex-col gap-2">
+                  {plan.vehicles.map((v, i) => (
+                    <Row key={i} name="vehicle" value={String(i)} warnings={v.warnings} checked={plan.mode === "capture"}>
                       <p className="font-medium">
-                        {KIND_LABELS[t.kind as TransferKind] ?? t.kind}
-                        <span className="font-normal"> · {endpointName(t.from)} → {endpointName(t.to)}</span>
+                        {VEHICLE_LABELS[v.kind]}
+                        <span className="font-normal">{[v.provider, v.vehicle_name].filter(Boolean).length ? ` · ${[v.provider, v.vehicle_name].filter(Boolean).join(" ")}` : ""}</span>
                       </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {t.depart_local ? `Abfahrt ${fmtLocal(t.depart_local)}` : "Abfahrt offen"}
-                        {t.arrive_local && ` · Ankunft ${fmtLocal(t.arrive_local)}`}
-                        {t.estimated && " (geschätzt)"}
+                        {v.pickup_local ? `Übernahme ${fmtLocal(v.pickup_local)}` : "Übernahme offen"}
+                        {v.pickup_place && ` in ${v.pickup_place}`}
                       </p>
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {[
-                          t.carrier,
-                          t.flight_number,
-                          t.duration_min !== null ? formatDuration(t.duration_min) : null,
-                          t.distance_km !== null ? `${t.distance_km} km` : null,
-                          t.booking_ref ? `Buchung ${t.booking_ref}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
+                        {v.return_local ? `Rückgabe ${fmtLocal(v.return_local)}` : "Rückgabe offen"}
+                        {v.return_place && ` in ${v.return_place}`}
+                        {v.price !== null && ` · ${v.price} ${v.currency ?? ""}`}
+                        {v.booking_ref && ` · Buchung ${v.booking_ref}`}
                       </p>
                     </Row>
                   ))}
@@ -207,14 +240,61 @@ export function AiCapture({ tripId, enabled }: { tripId: string; enabled: boolea
               <Button type="submit" disabled={applying}>
                 {applying ? "Speichere …" : "Ausgewählte übernehmen"}
               </Button>
-              <Link href={`/trips/${tripId}/ai`} className="inline-flex min-h-11 items-center px-2 text-sm underline">
+              <Button type="button" variant="ghost" onClick={() => setDismissed(shown)}>
                 Verwerfen
-              </Link>
+              </Button>
             </div>
           </Card>
         </form>
       )}
     </div>
+  );
+}
+
+/** Verbindungen mit mindestens zwei Varianten in derselben Gruppe werden zur Auswahl; alle anderen sind einzeln. */
+function splitTransfers(transfers: PlanTransfer[]) {
+  const byGroup = new Map<string, { t: PlanTransfer; i: number }[]>();
+  transfers.forEach((t, i) => {
+    if (t.group) byGroup.set(t.group, [...(byGroup.get(t.group) ?? []), { t, i }]);
+  });
+  const grouped = new Set<number>();
+  const groups: [string, { t: PlanTransfer; i: number }[]][] = [];
+  let n = 0;
+  for (const members of byGroup.values()) {
+    if (members.length < 2) continue;
+    members.forEach((m) => grouped.add(m.i));
+    groups.push([String(n++), members]);
+  }
+  const singles = transfers.flatMap((t, i) => (grouped.has(i) ? [] : [{ t, i }]));
+  return { singles, groups };
+}
+
+function TransferBody({ t }: { t: PlanTransfer }) {
+  return (
+    <>
+      <p className="font-medium">
+        {KIND_LABELS[t.kind as TransferKind] ?? t.kind}
+        <span className="font-normal"> · {endpointName(t.from)} → {endpointName(t.to)}</span>
+      </p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        {t.depart_local ? `Abfahrt ${fmtLocal(t.depart_local)}` : "Abfahrt offen"}
+        {t.arrive_local && ` · Ankunft ${fmtLocal(t.arrive_local)}`}
+        {t.estimated && " (geschätzt)"}
+      </p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        {[
+          t.carrier,
+          t.flight_number,
+          t.duration_min !== null ? formatDuration(t.duration_min) : null,
+          t.distance_km !== null ? `${t.distance_km} km` : null,
+          t.price !== null ? `ca. ${t.price} ${t.currency ?? ""}`.trim() : null,
+          t.booking_ref ? `Buchung ${t.booking_ref}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {t.notes && <p className="text-sm text-neutral-600 dark:text-neutral-400">{t.notes}</p>}
+    </>
   );
 }
 
@@ -235,18 +315,20 @@ function Row({
   value,
   warnings,
   checked,
+  type = "checkbox",
   children,
 }: {
   name: string;
   value: string;
   warnings: string[];
   checked: boolean;
+  type?: "checkbox" | "radio";
   children: React.ReactNode;
 }) {
   return (
     <li className="flex gap-3 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
       <input
-        type="checkbox"
+        type={type}
         name={name}
         value={value}
         defaultChecked={checked}

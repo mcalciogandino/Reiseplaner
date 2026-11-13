@@ -184,6 +184,37 @@ describe("RLS: nicht angemeldet", () => {
   });
 });
 
+describe("Budget", () => {
+  it("kennt die Kategorie «Transport» und lehnt unbekannte ab", async () => {
+    await as(A, async (q) => {
+      const [t] = await q(`insert into trips (name, start_date, end_date, owner_id) values ('B', '2027-01-01', '2027-01-10', '${A}') returning id`);
+      const id = (t as { id: string }).id;
+      await q(`insert into budget_entries (trip_id, category, description, planned_amount) values ('${id}', 'transport', 'Taxi', 40)`);
+      await expect(
+        q(`insert into budget_entries (trip_id, category, description) values ('${id}', 'ufo', 'x')`),
+      ).rejects.toThrow();
+    });
+  });
+});
+
+describe("Mietfahrzeuge", () => {
+  it("gehören zur Reise: fremde sehen und ändern nichts", async () => {
+    let tripId = "";
+    await as(A, async (q) => {
+      const [t] = await q(`insert into trips (name, start_date, end_date, owner_id) values ('K', '2027-01-01', '2027-01-10', '${A}') returning id`);
+      tripId = (t as { id: string }).id;
+      await q(`insert into vehicles (trip_id, kind, provider) values ('${tripId}', 'camper', 'Avis')`);
+      expect(await q("select * from vehicles")).toHaveLength(1);
+      await expect(
+        q(`insert into vehicles (trip_id, kind, pickup_at, return_at) values ('${tripId}', 'car', '2027-01-05', '2027-01-04')`),
+      ).rejects.toThrow();
+    });
+    await as(B, async (q) => {
+      expect(await q("select * from vehicles")).toHaveLength(0);
+    });
+  });
+});
+
 describe("Einstellungen (API-Schlüssel)", () => {
   it("jede Person sieht und ändert nur ihre eigenen Einstellungen", async () => {
     await as(A, async (q) => {

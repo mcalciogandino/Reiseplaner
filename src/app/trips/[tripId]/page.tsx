@@ -77,8 +77,14 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <p className="mt-1 text-neutral-600 dark:text-neutral-400">{formatRoute(trip)}</p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Link href={`/trips/${tripId}/ai`} className={linkButton}>
-            Mit KI erfassen
+          <Link href={`/trips/${tripId}/budget`} className={linkButton}>
+            Budget
+          </Link>
+          <Link href={`/trips/${tripId}/vehicles`} className={linkButton}>
+            Fahrzeuge
+          </Link>
+          <Link href={`/trips/${tripId}/days`} className={linkButton}>
+            Tagesplan
           </Link>
           <Link href={`/trips/${tripId}/checklist`} className={linkButton}>
             Checkliste
@@ -140,6 +146,9 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
               Noch nichts erfasst. Füge Orte und Verschiebungen (Flüge, Mietwagen, Fähren, Fahrten) hinzu.
               Sie erscheinen hier in zeitlicher Reihenfolge.
             </p>
+            <Link href={`/trips/${tripId}/ai`} className="mt-3 inline-flex min-h-11 items-center gap-2 underline">
+              Oder beschreibe es der KI in einem Text
+            </Link>
           </Card>
         ) : (
           <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} />
