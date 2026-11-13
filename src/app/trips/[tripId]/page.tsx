@@ -82,7 +82,10 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <h1 className="text-2xl font-semibold">{trip.name}</h1>
           <p className="mt-1 text-neutral-600 dark:text-neutral-400">{formatRoute(trip)}</p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link href={`/trips/${tripId}/activities`} className={linkButton}>
+            Bucket List
+          </Link>
           <Link href={`/trips/${tripId}/budget`} className={linkButton}>
             Budget
           </Link>

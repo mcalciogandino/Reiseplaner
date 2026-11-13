@@ -283,7 +283,7 @@ function LineRow({
           {l.planned !== null && `geplant ${money(l.planned)} ${l.currency}`}
           {l.actual !== null && `${l.planned !== null ? " · " : ""}bezahlt ${money(l.actual)} ${l.currency}`}
           {l.rate !== null && ` · Kurs ${l.rate}`}
-          {l.origin === "auto" && " · aus Buchung"}
+          {l.origin === "auto" && (l.key.startsWith("a-") ? " · aus Aktivität" : " · aus Buchung")}
         </p>
       </div>
       {l.entryId ? (
