@@ -202,10 +202,14 @@ function PlaceCard({
   ].filter(Boolean).join(", ");
 
   return (
-    <Card className="flex items-start gap-3">
+    <Card className="relative flex items-start gap-3 transition-colors hover:border-red-700">
       <div className="min-w-0 flex-1">
         <p className="text-xs text-neutral-500">{PLACE_KIND_LABELS[d.kind] ?? "Ort"}</p>
-        <Link href={`/trips/${tripId}/destinations/${d.id}`} className="font-semibold underline-offset-2 hover:underline">
+        {/* Der Link deckt über ::after die ganze Karte ab; die Pfeiltasten liegen darüber. */}
+        <Link
+          href={`/trips/${tripId}/destinations/${d.id}`}
+          className="font-semibold after:absolute after:inset-0 after:rounded-xl after:content-['']"
+        >
           {d.name}
         </Link>
         <div className="mt-1 space-y-0.5 text-sm text-neutral-600 dark:text-neutral-400">
@@ -229,7 +233,7 @@ function PlaceCard({
         </div>
       </div>
       {canMove && (
-        <div className="flex shrink-0 gap-1">
+        <div className="relative z-10 flex shrink-0 gap-1">
           <MoveButton tripId={tripId} destId={d.id} direction="up" disabled={first} />
           <MoveButton tripId={tripId} destId={d.id} direction="down" disabled={last} />
         </div>
