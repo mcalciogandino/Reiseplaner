@@ -34,6 +34,11 @@ const entrySchema = z
     actual_amount: amount,
     currency,
     entry_date: z.union([z.literal(""), z.iso.date()]).transform((v) => v || null),
+    rate_to_base: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || (/^\d{1,6}([.,]\d{1,6})?$/.test(v) && Number(v.replace(",", ".")) > 0), "Bitte einen Kurs wie 0.65 eingeben.")
+      .transform((v) => (v === "" ? null : Number(v.replace(",", ".")))),
   })
   .refine((v) => v.planned_amount !== null || v.actual_amount !== null, {
     message: "Bitte einen geplanten oder tatsächlichen Betrag eingeben.",
@@ -49,12 +54,35 @@ export async function addEntry(tripId: string, _prev: BudgetState, fd: FormData)
     actual_amount: fd.get("actual_amount") ?? "",
     currency: fd.get("currency") ?? "CAD",
     entry_date: fd.get("entry_date") ?? "",
+    rate_to_base: fd.get("rate_to_base") ?? "",
   });
   if (!parsed.success) return { message: parsed.error.issues[0].message };
   const supabase = await createClient();
   const { error } = await supabase.from("budget_entries").insert({ trip_id: tripId, ...parsed.data });
   if (error) {
     console.error("addEntry failed:", error.code);
+    return { message: "Der Posten konnte nicht gespeichert werden." };
+  }
+  revalidatePath(`/trips/${tripId}/budget`);
+  return null;
+}
+
+export async function updateEntry(tripId: string, entryId: string, _prev: BudgetState, fd: FormData): Promise<BudgetState> {
+  if (!uuid.safeParse(tripId).success || !uuid.safeParse(entryId).success) return { message: "Ungültige Angaben." };
+  const parsed = entrySchema.safeParse({
+    category: fd.get("category") ?? "",
+    description: fd.get("description") ?? "",
+    planned_amount: fd.get("planned_amount") ?? "",
+    actual_amount: fd.get("actual_amount") ?? "",
+    currency: fd.get("currency") ?? "CAD",
+    entry_date: fd.get("entry_date") ?? "",
+    rate_to_base: fd.get("rate_to_base") ?? "",
+  });
+  if (!parsed.success) return { message: parsed.error.issues[0].message };
+  const supabase = await createClient();
+  const { error } = await supabase.from("budget_entries").update(parsed.data).eq("id", entryId).eq("trip_id", tripId);
+  if (error) {
+    console.error("updateEntry failed:", error.code);
     return { message: "Der Posten konnte nicht gespeichert werden." };
   }
   revalidatePath(`/trips/${tripId}/budget`);

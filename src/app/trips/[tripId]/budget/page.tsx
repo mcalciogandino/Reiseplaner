@@ -62,6 +62,7 @@ async function Content({ params }: { params: Params }) {
     actual: e.actual_amount === null ? null : Number(e.actual_amount),
     currency: e.currency as string,
     rate: e.rate_to_base === null ? null : Number(e.rate_to_base),
+    date: (e.entry_date as string | null) ?? null,
   }));
   const auto = [
     ...destinationLines((dests ?? []).map((d) => ({ ...d, lodging_price: d.lodging_price === null ? null : Number(d.lodging_price) }))),

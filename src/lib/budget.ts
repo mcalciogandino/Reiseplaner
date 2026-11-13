@@ -28,6 +28,7 @@ export type BudgetLine = {
   /** Eigener Kurs der Zeile (1 Einheit = rate Basiswährung), sonst Tageskurs. */
   rate: number | null;
   entryId?: string;
+  date?: string | null;
 };
 
 type Priced = { price: number | null; currency: string | null };

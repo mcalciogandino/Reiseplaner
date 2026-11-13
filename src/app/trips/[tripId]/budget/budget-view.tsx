@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Trash2 } from "lucide-react";
+import { Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import {
   applyEntries,
   deleteEntry,
   saveTotals,
+  updateEntry,
   suggestEntries,
   type BudgetState,
   type BudgetSuggestions,
@@ -118,28 +119,7 @@ export function BudgetView({
         ) : (
           <ul className="flex flex-col gap-2">
             {lines.map((l) => (
-              <li key={l.key} className="flex items-start gap-3 rounded-lg border border-neutral-300 p-3 text-sm dark:border-neutral-700">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{l.description}</p>
-                  <p className="text-neutral-600 dark:text-neutral-400">
-                    {CATEGORY_LABELS[l.category]}
-                    {" · "}
-                    {l.planned !== null && `geplant ${money(l.planned)} ${l.currency}`}
-                    {l.actual !== null && `${l.planned !== null ? " · " : ""}bezahlt ${money(l.actual)} ${l.currency}`}
-                    {l.origin === "auto" && " · aus Buchung"}
-                  </p>
-                </div>
-                {l.entryId ? (
-                  <button
-                    type="button"
-                    aria-label={`${l.description} löschen`}
-                    onClick={() => startRow(() => void deleteEntry(tripId, l.entryId!))}
-                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    <Trash2 aria-hidden="true" className="size-4" />
-                  </button>
-                ) : null}
-              </li>
+              <LineRow key={l.key} tripId={tripId} line={l} base={base} onRow={startRow} />
             ))}
           </ul>
         )}
@@ -170,6 +150,9 @@ export function BudgetView({
             </Field>
             <Field id="b-date" label="Datum (optional)">
               <Input id="b-date" name="entry_date" type="date" />
+            </Field>
+            <Field id="b-rate" label={`Eigener Kurs in ${base} (optional)`}>
+              <Input id="b-rate" name="rate_to_base" inputMode="decimal" placeholder="Tageskurs" />
             </Field>
           </div>
           {added && <p role="alert" className="text-sm text-red-700">{added.message}</p>}
@@ -227,5 +210,92 @@ function Stat({ label, value, warn = false }: { label: string; value: string; wa
       <dt className="text-xs text-neutral-500">{label}</dt>
       <dd className={warn ? "text-base font-semibold text-red-700 dark:text-red-400" : "text-base font-semibold"}>{value}</dd>
     </div>
+  );
+}
+
+function LineRow({
+  tripId,
+  line: l,
+  base,
+  onRow,
+}: {
+  tripId: string;
+  line: BudgetLine;
+  base: string;
+  onRow: (fn: () => void) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [state, save, saving] = useActionState<BudgetState, FormData>(async (prev, fd) => {
+    const res = await updateEntry(tripId, l.entryId!, prev, fd);
+    if (!res) setEditing(false);
+    return res;
+  }, null);
+  const iconBtn = "inline-flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800";
+
+  if (editing && l.entryId) {
+    return (
+      <li className="rounded-lg border border-neutral-300 p-3 text-sm dark:border-neutral-700">
+        <form action={save} className="flex flex-col gap-3">
+          <Field id={`e-cat-${l.key}`} label="Kategorie">
+            <Select id={`e-cat-${l.key}`} name="category" defaultValue={l.category}>
+              {CATEGORIES.map((c: Category) => (
+                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field id={`e-desc-${l.key}`} label="Beschreibung">
+            <Input id={`e-desc-${l.key}`} name="description" required maxLength={150} defaultValue={l.description} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field id={`e-pl-${l.key}`} label="Geplant">
+              <Input id={`e-pl-${l.key}`} name="planned_amount" inputMode="decimal" defaultValue={l.planned ?? ""} />
+            </Field>
+            <Field id={`e-ac-${l.key}`} label="Bezahlt">
+              <Input id={`e-ac-${l.key}`} name="actual_amount" inputMode="decimal" defaultValue={l.actual ?? ""} />
+            </Field>
+            <Field id={`e-cur-${l.key}`} label="Währung">
+              <Input id={`e-cur-${l.key}`} name="currency" maxLength={3} defaultValue={l.currency} />
+            </Field>
+            <Field id={`e-dt-${l.key}`} label="Datum (optional)">
+              <Input id={`e-dt-${l.key}`} name="entry_date" type="date" defaultValue={l.date ?? ""} />
+            </Field>
+            <Field id={`e-rt-${l.key}`} label={`Eigener Kurs in ${base}`}>
+              <Input id={`e-rt-${l.key}`} name="rate_to_base" inputMode="decimal" defaultValue={l.rate ?? ""} placeholder="Tageskurs" />
+            </Field>
+          </div>
+          {state && <p role="alert" className="text-sm text-red-700">{state.message}</p>}
+          <div className="flex gap-3">
+            <Button type="submit" disabled={saving}>Speichern</Button>
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>Abbrechen</Button>
+          </div>
+        </form>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex items-start gap-1 rounded-lg border border-neutral-300 p-3 text-sm dark:border-neutral-700">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{l.description}</p>
+        <p className="text-neutral-600 dark:text-neutral-400">
+          {CATEGORY_LABELS[l.category]}
+          {" · "}
+          {l.planned !== null && `geplant ${money(l.planned)} ${l.currency}`}
+          {l.actual !== null && `${l.planned !== null ? " · " : ""}bezahlt ${money(l.actual)} ${l.currency}`}
+          {l.rate !== null && ` · Kurs ${l.rate}`}
+          {l.origin === "auto" && " · aus Buchung"}
+        </p>
+      </div>
+      {l.entryId ? (
+        <>
+          <button type="button" aria-label={`${l.description} bearbeiten`} onClick={() => setEditing(true)} className={iconBtn}>
+            <Pencil aria-hidden="true" className="size-4" />
+          </button>
+          <button type="button" aria-label={`${l.description} löschen`} onClick={() => onRow(() => void deleteEntry(tripId, l.entryId!))} className={iconBtn}>
+            <Trash2 aria-hidden="true" className="size-4" />
+          </button>
+        </>
+      ) : null}
+    </li>
   );
 }
