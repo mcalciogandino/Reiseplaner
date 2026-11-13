@@ -18,7 +18,7 @@ export type TransferFormState = {
 const FIELDS = [
   "kind", "from_destination_id", "to_destination_id", "from_place", "to_place",
   "depart_local", "depart_tz", "arrive_local", "arrive_tz",
-  "duration_min", "distance_km", "carrier", "flight_number", "booking_ref",
+  "duration_min", "distance_km", "carrier", "flight_number", "booking_ref", "price", "currency", "notes",
   "from_lat", "from_lng", "to_lat", "to_lng",
   ...(["from", "to"] as const).flatMap((side) => NEW_PLACE_KEYS.map((k) => `${side}_new_${k}`)),
 ];
@@ -60,6 +60,17 @@ const schema = z
     carrier: text(100),
     flight_number: text(30),
     booking_ref: text(100),
+    price: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || /^\d{1,7}([.,]\d{1,2})?$/.test(v), "Bitte einen Preis wie 40 oder 39.90 eingeben.")
+      .transform((v) => (v === "" ? null : Number(v.replace(",", ".")))),
+    currency: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || /^[A-Za-z]{3}$/.test(v), "Bitte die Währung mit drei Buchstaben angeben, z. B. CAD.")
+      .transform((v) => (v === "" ? null : v.toUpperCase())),
+    notes: text(500),
     from_lat: z.string().trim(),
     from_lng: z.string().trim(),
     to_lat: z.string().trim(),
@@ -102,6 +113,9 @@ const schema = z
     carrier: d.carrier,
     flight_number: d.flight_number,
     booking_ref: d.booking_ref,
+    price: d.price,
+    currency: d.price !== null ? (d.currency ?? "CAD") : d.currency,
+    notes: d.notes,
   }))
   .refine((d) => !d.depart_at || !d.arrive_at || d.arrive_at >= d.depart_at, {
     message: "Die Ankunft darf nicht vor der Abfahrt liegen.",
