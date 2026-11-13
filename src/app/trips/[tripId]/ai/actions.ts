@@ -59,7 +59,8 @@ export async function proposeEntries(
     supabase
       .from("transfers")
       .select("kind, from_destination_id, to_destination_id, from_place, to_place, depart_at")
-      .eq("trip_id", tripId),
+      .eq("trip_id", tripId)
+      .eq("is_option", false),
     supabase.from("vehicles").select(VEHICLE_COLUMNS).eq("trip_id", tripId).returns<Vehicle[]>(),
   ]);
   const places = (stops ?? []) as (KnownPlace & { arrival_date: string | null; departure_date: string | null })[];
@@ -251,8 +252,24 @@ export async function applyPlan(
     };
   };
 
+  // Varianten: Gruppen mit mindestens zwei Mitgliedern; die nicht gewählten werden auf Wunsch als Alternativen gespeichert.
+  const sizes = new Map<string, number>();
+  for (const t of plan.transfers) if (t.group) sizes.set(t.group, (sizes.get(t.group) ?? 0) + 1);
+  const isVariant = (g: string | null) => Boolean(g && (sizes.get(g) ?? 0) >= 2);
+  const groupIds = new Map<string, string>();
+  const groupId = (g: string) => groupIds.get(g) ?? (groupIds.set(g, crypto.randomUUID()), groupIds.get(g)!);
+  const chosenGroups = new Set(transfers.filter((t) => isVariant(t.group)).map((t) => t.group as string));
+  const keepOptions = formData.get("keep_options") === "1";
+  const alternatives = keepOptions
+    ? plan.transfers.filter((t, i) => isVariant(t.group) && chosenGroups.has(t.group as string) && !chosenTransfers.has(String(i)))
+    : [];
+  const queue = [
+    ...transfers.map((t) => ({ t, opt: false })),
+    ...alternatives.map((t) => ({ t, opt: true })),
+  ];
+
   const routable: { id: string; row: Parameters<typeof storeRoute>[3] }[] = [];
-  for (const t of transfers) {
+  for (const { t, opt } of queue) {
     const from = side(t.from);
     const to = side(t.to);
     const row = {
@@ -278,6 +295,8 @@ export async function applyPlan(
       price: t.price,
       currency: t.currency,
       notes: t.notes,
+      option_group: isVariant(t.group) ? groupId(t.group as string) : null,
+      is_option: opt,
       source: "ai",
       source_ref: "chat",
       reviewed: true,
@@ -285,6 +304,7 @@ export async function applyPlan(
     const { data, error } = await supabase.from("transfers").insert(row).select("id").single();
     if (error || !data) return fail("transfer", error);
     createdTransfers.push(data.id as string);
+    if (opt) continue;
     routable.push({
       id: data.id as string,
       row: {

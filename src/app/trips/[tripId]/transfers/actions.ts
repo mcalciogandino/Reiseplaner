@@ -301,9 +301,42 @@ export async function updateTransfer(
   redirect(`/trips/${tripId}`);
 }
 
+/** Eine Alternative zur gewählten Verbindung machen; die bisherige wird zur Alternative. */
+export async function chooseOption(tripId: string, optionId: string) {
+  if (!uuid.safeParse(tripId).success || !uuid.safeParse(optionId).success) return;
+  const supabase = await createClient();
+  const { data: opt } = await supabase
+    .from("transfers")
+    .select("option_group")
+    .eq("id", optionId)
+    .eq("trip_id", tripId)
+    .eq("is_option", true)
+    .maybeSingle();
+  if (!opt?.option_group) return;
+  const demote = await supabase
+    .from("transfers")
+    .update({ is_option: true })
+    .eq("trip_id", tripId)
+    .eq("option_group", opt.option_group)
+    .eq("is_option", false);
+  if (demote.error) {
+    console.error("chooseOption demote failed:", demote.error.code);
+    return;
+  }
+  const promote = await supabase.from("transfers").update({ is_option: false }).eq("id", optionId).eq("trip_id", tripId);
+  if (promote.error) console.error("chooseOption promote failed:", promote.error.code);
+  revalidatePath("/", "layout");
+}
+
 export async function deleteTransfer(tripId: string, transferId: string) {
   if (!uuid.safeParse(tripId).success || !uuid.safeParse(transferId).success) return;
   const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("transfers")
+    .select("option_group, is_option")
+    .eq("id", transferId)
+    .eq("trip_id", tripId)
+    .maybeSingle();
   const { error } = await supabase
     .from("transfers")
     .delete()
@@ -312,6 +345,18 @@ export async function deleteTransfer(tripId: string, transferId: string) {
   if (error) {
     console.error("deleteTransfer failed:", error.code, error.message);
     return;
+  }
+  // Wurde die gewählte Verbindung gelöscht, rückt die erste Alternative nach.
+  if (row?.option_group && !row.is_option) {
+    const { data: next } = await supabase
+      .from("transfers")
+      .select("id")
+      .eq("trip_id", tripId)
+      .eq("option_group", row.option_group)
+      .eq("is_option", true)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (next?.[0]) await supabase.from("transfers").update({ is_option: false }).eq("id", next[0].id).eq("trip_id", tripId);
   }
   revalidatePath("/", "layout");
   redirect(`/trips/${tripId}`);

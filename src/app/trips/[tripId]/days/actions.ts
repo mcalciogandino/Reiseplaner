@@ -101,7 +101,7 @@ export async function suggestDay(tripId: string, day: string): Promise<DaySugges
   if (!trip) return { message: "Reise nicht gefunden." };
   const [{ data: dests }, { data: legs }, { data: plan }] = await Promise.all([
     supabase.from("destinations").select(DESTINATION_COLUMNS).eq("trip_id", tripId).returns<Destination[]>(),
-    supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).returns<Transfer[]>(),
+    supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).eq("is_option", false).returns<Transfer[]>(),
     supabase.from("day_plans").select("id").eq("trip_id", tripId).eq("date", day).maybeSingle(),
   ]);
   const here = placesOnDay(dests ?? [], day);

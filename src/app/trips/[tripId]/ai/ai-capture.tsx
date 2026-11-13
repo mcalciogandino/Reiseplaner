@@ -207,6 +207,12 @@ export function AiCapture({ tripId, enabled, position }: { tripId: string; enabl
                     </ul>
                   </fieldset>
                 ))}
+                {groups.length > 0 && (
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input type="checkbox" name="keep_options" value="1" defaultChecked className="size-5 accent-red-700" />
+                    Die anderen Möglichkeiten als Alternativen speichern
+                  </label>
+                )}
               </section>
             )}
 

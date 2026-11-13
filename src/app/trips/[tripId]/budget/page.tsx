@@ -43,7 +43,7 @@ async function Content({ params }: { params: Params }) {
 
   const [{ data: dests }, { data: legs }, { data: cars }, { data: entries, error }] = await Promise.all([
     supabase.from("destinations").select("id, name, kind, lodging_name, lodging_price, lodging_currency").eq("trip_id", tripId),
-    supabase.from("transfers").select("id, kind, from_place, to_place, price, currency").eq("trip_id", tripId),
+    supabase.from("transfers").select("id, kind, from_place, to_place, price, currency").eq("trip_id", tripId).eq("is_option", false),
     supabase.from("vehicles").select("id, kind, provider, vehicle_name, price, currency").eq("trip_id", tripId),
     supabase
       .from("budget_entries")

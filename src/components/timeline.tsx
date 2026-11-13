@@ -19,6 +19,7 @@ import {
 } from "@/lib/transfers";
 import { formatDate } from "@/lib/trips";
 import { moveDestination } from "@/app/trips/[tripId]/destinations/actions";
+import { chooseOption } from "@/app/trips/[tripId]/transfers/actions";
 
 const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
   flight: Plane, drive: Car, ferry: Ship, car_pickup: KeyRound, car_return: KeyRound,
@@ -48,11 +49,14 @@ export function Timeline({
   startDate,
   nodes,
   destinations,
+  options,
 }: {
   tripId: string;
   startDate: string;
   nodes: TimelineNode[];
   destinations: Destination[];
+  /** Alternativen je Verbindung, Schlüssel: option_group. */
+  options?: Map<string, Transfer[]>;
 }) {
   const stopName = new Map(destinations.map((d) => [d.id, d.name]));
   const firstIndex = new Map(destinations.map((d, i) => [d.id, i]));
@@ -81,7 +85,13 @@ export function Timeline({
               />
             )}
             {node.type === "transfer" && (
-              <TransferCard tripId={tripId} t={node.transfer} stopName={stopName} destinations={destinations} />
+              <TransferCard
+                tripId={tripId}
+                t={node.transfer}
+                stopName={stopName}
+                destinations={destinations}
+                options={(node.transfer.option_group && options?.get(node.transfer.option_group)) || []}
+              />
             )}
             {node.type === "free" && (
               <p className="flex min-h-8 items-center gap-2 px-1 text-sm text-neutral-600 dark:text-neutral-400">
@@ -260,8 +270,8 @@ function MoveButton({
 }
 
 function TransferCard({
-  tripId, t, stopName, destinations,
-}: { tripId: string; t: Transfer; stopName: Map<string, string>; destinations: Destination[] }) {
+  tripId, t, stopName, destinations, options,
+}: { tripId: string; t: Transfer; stopName: Map<string, string>; destinations: Destination[]; options: Transfer[] }) {
   const from = (t.from_destination_id && stopName.get(t.from_destination_id)) || t.from_place;
   const to = (t.to_destination_id && stopName.get(t.to_destination_id)) || t.to_place;
   const route = [from, to].filter(Boolean).join(" → ");
@@ -310,6 +320,39 @@ function TransferCard({
         >
           In Google Maps öffnen ↗
         </a>
+      )}
+      {options.length > 0 && (
+        <details className="mt-2 rounded-lg border border-neutral-300 px-3 dark:border-neutral-700">
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm">
+            {options.length === 1 ? "1 Alternative" : `${options.length} Alternativen`}
+          </summary>
+          <ul className="flex flex-col gap-2 pb-3">
+            {options.map((o) => {
+              const m = durationMinutes(o);
+              const bits = [
+                m !== null && m >= 0 ? formatDuration(m) : null,
+                o.price !== null ? `${o.price} ${o.currency ?? ""}`.trim() : null,
+                o.notes,
+              ].filter(Boolean);
+              return (
+                <li key={o.id} className="flex items-start gap-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{KIND_LABELS[o.kind]}</p>
+                    {bits.length > 0 && <p className="text-neutral-600 dark:text-neutral-400">{bits.join(" · ")}</p>}
+                  </div>
+                  <form action={chooseOption.bind(null, tripId, o.id)}>
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-11 items-center rounded-lg border border-neutral-300 px-3 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                      Wählen
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
       )}
     </>
   );

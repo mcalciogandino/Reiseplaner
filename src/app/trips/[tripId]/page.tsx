@@ -64,7 +64,13 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     .order("depart_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true })
     .returns<Transfer[]>();
-  const transfers = legs ?? [];
+  const allLegs = legs ?? [];
+  const transfers = allLegs.filter((t) => !t.is_option);
+  // Alternativen je Verbindung (gleiche option_group), für die Anzeige unter der gewählten Verbindung.
+  const options = new Map<string, Transfer[]>();
+  for (const t of allLegs) {
+    if (t.is_option && t.option_group) options.set(t.option_group, [...(options.get(t.option_group) ?? []), t]);
+  }
   const loadError = dbErrorMessage(stopsError, legsError);
   const nodes = buildTimeline(destinations, transfers);
   const warnings = routeWarnings(trip, destinations);
@@ -151,7 +157,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
             </Link>
           </Card>
         ) : (
-          <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} />
+          <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} options={options} />
         )}
       </section>
 

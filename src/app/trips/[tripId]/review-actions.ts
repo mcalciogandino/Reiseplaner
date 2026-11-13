@@ -24,6 +24,7 @@ export async function checkTrip(tripId: string): Promise<ReviewState> {
       .from("transfers")
       .select("kind, from_place, to_place, depart_at, arrive_at, duration_min, distance_km, from_destination_id, to_destination_id")
       .eq("trip_id", tripId)
+      .eq("is_option", false)
       .order("depart_at", { ascending: true, nullsFirst: false }),
   ]);
   if (!stops?.length && !legs?.length) return { message: "Es gibt noch nichts zu prüfen: Lege zuerst Orte oder Verschiebungen an." };

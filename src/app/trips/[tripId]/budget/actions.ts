@@ -98,7 +98,7 @@ export async function suggestEntries(tripId: string): Promise<BudgetSuggestions>
       .select("id, name, kind, lodging_name, lodging_price, lodging_currency, arrival_date, departure_date")
       .eq("trip_id", tripId)
       .order("sort_order"),
-    supabase.from("transfers").select("id, kind, from_place, to_place, price, currency").eq("trip_id", tripId),
+    supabase.from("transfers").select("id, kind, from_place, to_place, price, currency").eq("trip_id", tripId).eq("is_option", false),
     supabase.from("vehicles").select("id, kind, provider, vehicle_name, price, currency").eq("trip_id", tripId),
     supabase.from("budget_entries").select("category, description, planned_amount, actual_amount, currency").eq("trip_id", tripId),
   ]);
