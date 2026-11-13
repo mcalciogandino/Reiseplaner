@@ -507,3 +507,56 @@ export async function suggestBudget(context: string, creds: Creds, client?: Mess
     budgetSchema,
   );
 }
+
+const ideasSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(150),
+        description: z.string().trim().max(400).nullish(),
+        estimated_cost: z.number().min(0).max(100_000).nullish(),
+        currency: z.string().trim().regex(/^[A-Za-z]{3}$/).nullish(),
+        needs_reservation: z.boolean().nullish(),
+        place: z.string().trim().max(100).nullish(),
+      }),
+    )
+    .max(10)
+    .default([]),
+});
+export type IdeaSuggestion = z.infer<typeof ideasSchema>["items"][number];
+
+/** Ideen für Aktivitäten an den Reiseorten, ohne Dubletten zur bestehenden Liste. */
+export async function suggestIdeas(context: string, creds: Creds, client?: MessagesClient) {
+  return forcedTool(
+    creds,
+    client,
+    `Du bist Reiseberater und sammelst über das Werkzeug "propose_ideas" Ideen für Aktivitäten für zwei Reisende. Schlage nur Ideen vor, die noch nicht auf der Liste stehen. Gib bei "place" den passenden Reiseort aus der Liste an (genau so geschrieben), falls einer passt. Kosten sind grobe Richtwerte pro Aktivität für beide zusammen in der Reisewährung (meist CAD), oder weglassen, wenn unbekannt. Markiere Aktivitäten, die man reservieren muss. Höchstens 8 Ideen. Antworte auf Deutsch.`,
+    context,
+    {
+      name: "propose_ideas",
+      description: "Schlägt Aktivitäten vor.",
+      input_schema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                description: { type: ["string", "null"] },
+                estimated_cost: { type: ["number", "null"] },
+                currency: { type: ["string", "null"] },
+                needs_reservation: { type: ["boolean", "null"] },
+                place: { type: ["string", "null"] },
+              },
+              required: ["title"],
+            },
+          },
+        },
+        required: ["items"],
+      },
+    },
+    ideasSchema,
+  );
+}

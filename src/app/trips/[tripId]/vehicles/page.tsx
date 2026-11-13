@@ -43,9 +43,16 @@ async function Content({ params }: { params: Params }) {
       </Link>
       <h1 className="text-2xl font-semibold">Mietfahrzeuge · {trip.name}</h1>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Die KI plant Autofahrten nur für Zeiten, in denen ein Fahrzeug verfügbar ist. Neue Fahrzeuge erfasst du über «Mit KI einfügen» im «+» der Zeitleiste:
-        füge den Text der Buchung ein.
+        Die KI plant Autofahrten nur für Zeiten, in denen ein Fahrzeug verfügbar ist. Du kannst Fahrzeuge von Hand erfassen oder über «Mit KI einfügen» im «+» der Zeitleiste: füge den Text der Buchung ein.
       </p>
+      <div>
+        <Link
+          href={`/trips/${tripId}/vehicles/new`}
+          className="inline-flex min-h-11 items-center rounded-lg bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+        >
+          Fahrzeug hinzufügen
+        </Link>
+      </div>
       {error && (
         <p role="alert" className="rounded-lg border border-amber-600 p-3 text-sm text-amber-800 dark:text-amber-300">
           Die Fahrzeuge konnten nicht geladen werden. Führe <code>supabase/catch-up.sql</code> im SQL Editor aus.
@@ -76,6 +83,13 @@ async function Content({ params }: { params: Params }) {
                 </p>
                 {v.notes && <p className="text-neutral-600 dark:text-neutral-400">{v.notes}</p>}
               </div>
+              <Link
+                href={`/trips/${tripId}/vehicles/${v.id}`}
+                aria-label="Fahrzeug bearbeiten"
+                className="inline-flex size-11 items-center justify-center rounded-lg text-sm underline hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Ändern
+              </Link>
               <form action={deleteVehicle.bind(null, tripId, v.id)}>
                 <button
                   type="submit"

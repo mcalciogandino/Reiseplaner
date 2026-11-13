@@ -43,7 +43,7 @@ async function Content({ params }: { params: Params }) {
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true })
       .returns<Destination[]>(),
-    supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).returns<Transfer[]>(),
+    supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).eq("is_option", false).returns<Transfer[]>(),
   ]);
 
   const loadError = dbErrorMessage(stopsError, legsError);

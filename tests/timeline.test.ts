@@ -14,7 +14,7 @@ const dest = (id: string, extra: Partial<Destination> = {}): Destination => ({
 const tr = (id: string, extra: Partial<Transfer> = {}): Transfer => ({
   id, kind: "drive", from_destination_id: null, to_destination_id: null, from_place: null,
   to_place: null, depart_at: null, depart_tz: null, arrive_at: null, arrive_tz: null,
-  duration_min: null, distance_km: null, carrier: null, flight_number: null, booking_ref: null, from_lat: null, from_lng: null, to_lat: null, to_lng: null, route_geojson: null, route_distance_m: null, route_duration_s: null, price: null, currency: null, notes: null, ...extra,
+  duration_min: null, distance_km: null, carrier: null, flight_number: null, booking_ref: null, from_lat: null, from_lng: null, to_lat: null, to_lng: null, route_geojson: null, route_distance_m: null, route_duration_s: null, price: null, currency: null, notes: null, option_group: null, is_option: false, ...extra,
 });
 const keys = (n: ReturnType<typeof buildTimeline>) => n.map((x) => x.key);
 

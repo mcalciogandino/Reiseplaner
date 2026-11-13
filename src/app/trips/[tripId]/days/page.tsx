@@ -32,7 +32,7 @@ async function Content({ params }: { params: Params }) {
 
   const [{ data: dests }, { data: legs }, { data: plans, error }] = await Promise.all([
     supabase.from("destinations").select(DESTINATION_COLUMNS).eq("trip_id", tripId).order("sort_order").returns<Destination[]>(),
-    supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).returns<Transfer[]>(),
+    supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).eq("is_option", false).returns<Transfer[]>(),
     supabase
       .from("day_plans")
       .select("date, day_plan_items(id, title, description, start_time, end_time, plan_b, sort_order)")

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { activityLines, type Status } from "@/lib/activities";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
@@ -41,10 +42,11 @@ async function Content({ params }: { params: Params }) {
     .maybeSingle();
   if (!trip) notFound();
 
-  const [{ data: dests }, { data: legs }, { data: cars }, { data: entries, error }] = await Promise.all([
+  const [{ data: dests }, { data: legs }, { data: cars }, { data: acts }, { data: entries, error }] = await Promise.all([
     supabase.from("destinations").select("id, name, kind, lodging_name, lodging_price, lodging_currency").eq("trip_id", tripId),
-    supabase.from("transfers").select("id, kind, from_place, to_place, price, currency").eq("trip_id", tripId),
+    supabase.from("transfers").select("id, kind, from_place, to_place, price, currency").eq("trip_id", tripId).eq("is_option", false),
     supabase.from("vehicles").select("id, kind, provider, vehicle_name, price, currency").eq("trip_id", tripId),
+    supabase.from("activities").select("id, title, status, estimated_cost, currency").eq("trip_id", tripId),
     supabase
       .from("budget_entries")
       .select("id, category, description, planned_amount, actual_amount, currency, rate_to_base, entry_date")
@@ -62,6 +64,7 @@ async function Content({ params }: { params: Params }) {
     actual: e.actual_amount === null ? null : Number(e.actual_amount),
     currency: e.currency as string,
     rate: e.rate_to_base === null ? null : Number(e.rate_to_base),
+    date: (e.entry_date as string | null) ?? null,
   }));
   const auto = [
     ...destinationLines((dests ?? []).map((d) => ({ ...d, lodging_price: d.lodging_price === null ? null : Number(d.lodging_price) }))),
@@ -69,6 +72,7 @@ async function Content({ params }: { params: Params }) {
       (legs ?? []).map((t) => ({ ...t, price: t.price === null ? null : Number(t.price) })),
       (k) => KIND_LABELS[k as keyof typeof KIND_LABELS] ?? k,
     ),
+    ...activityLines((acts ?? []).map((a) => ({ ...a, status: a.status as Status, estimated_cost: a.estimated_cost === null ? null : Number(a.estimated_cost) }))),
     ...vehicleLines((cars ?? []).map((v) => ({ ...v, price: v.price === null ? null : Number(v.price) }))),
   ];
   const lines = [...auto, ...manual];
