@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import {
   addDayItem,
   applyDaySuggestions,
   deleteDayItem,
+  moveDayItem,
+  updateDayItem,
   suggestDay,
   type DayState,
   type DaySuggestions,
@@ -57,25 +59,15 @@ export function DayCard({ tripId, day }: { tripId: string; day: Day }) {
 
       {day.items.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {day.items.map((it) => (
-            <li key={it.id} className="flex items-start gap-3 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
-              <div className="min-w-0 flex-1 text-sm">
-                <p className="font-medium">
-                  {times(it.start_time, it.end_time) && <span className="mr-2 font-normal text-neutral-500">{times(it.start_time, it.end_time)}</span>}
-                  {it.title}
-                  {it.plan_b && <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-xs font-normal dark:bg-neutral-700">Plan B</span>}
-                </p>
-                {it.description && <p className="text-neutral-600 dark:text-neutral-400">{it.description}</p>}
-              </div>
-              <button
-                type="button"
-                aria-label={`${it.title} löschen`}
-                onClick={() => startRow(() => void deleteDayItem(tripId, it.id))}
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                <Trash2 aria-hidden="true" className="size-4" />
-              </button>
-            </li>
+          {day.items.map((it, idx) => (
+            <ItemRow
+              key={it.id}
+              tripId={tripId}
+              item={it}
+              canUp={!it.start_time && idx > 0 && !day.items[idx - 1].start_time && day.items[idx - 1].plan_b === it.plan_b}
+              canDown={!it.start_time && idx < day.items.length - 1 && !day.items[idx + 1].start_time && day.items[idx + 1].plan_b === it.plan_b}
+              onRow={startRow}
+            />
           ))}
         </ul>
       )}
@@ -134,5 +126,81 @@ export function DayCard({ tripId, day }: { tripId: string; day: Day }) {
         </form>
       )}
     </Card>
+  );
+}
+
+function ItemRow({
+  tripId,
+  item: it,
+  canUp,
+  canDown,
+  onRow,
+}: {
+  tripId: string;
+  item: DayItem;
+  canUp: boolean;
+  canDown: boolean;
+  onRow: (fn: () => void) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [state, save, saving] = useActionState<DayState, FormData>(async (prev, fd) => {
+    const res = await updateDayItem(tripId, it.id, prev, fd);
+    if (!res) setEditing(false);
+    return res;
+  }, null);
+  const iconBtn = "inline-flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800";
+
+  if (editing) {
+    return (
+      <li className="rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+        <form action={save} className="flex flex-col gap-2">
+          <Input name="title" required maxLength={150} defaultValue={it.title} aria-label="Titel" />
+          <Input name="description" maxLength={500} defaultValue={it.description ?? ""} placeholder="Notiz" aria-label="Notiz" />
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-sm">
+              Von
+              <Input type="time" name="start_time" defaultValue={hm(it.start_time) ?? ""} className="w-auto" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Bis
+              <Input type="time" name="end_time" defaultValue={hm(it.end_time) ?? ""} className="w-auto" />
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input type="checkbox" name="plan_b" defaultChecked={it.plan_b} className="size-5 accent-red-700" /> Plan B
+            </label>
+          </div>
+          {state && <p role="alert" className="text-sm text-red-700">{state.message}</p>}
+          <div className="flex gap-3">
+            <Button type="submit" disabled={saving}>Speichern</Button>
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>Abbrechen</Button>
+          </div>
+        </form>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex items-start gap-1 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+      <div className="min-w-0 flex-1 text-sm">
+        <p className="font-medium">
+          {times(it.start_time, it.end_time) && <span className="mr-2 font-normal text-neutral-500">{times(it.start_time, it.end_time)}</span>}
+          {it.title}
+          {it.plan_b && <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-xs font-normal dark:bg-neutral-700">Plan B</span>}
+        </p>
+        {it.description && <p className="text-neutral-600 dark:text-neutral-400">{it.description}</p>}
+      </div>
+      <button type="button" aria-label={`${it.title} nach oben`} disabled={!canUp} onClick={() => onRow(() => void moveDayItem(tripId, it.id, "up"))} className={iconBtn}>
+        <ArrowUp aria-hidden="true" className="size-4" />
+      </button>
+      <button type="button" aria-label={`${it.title} nach unten`} disabled={!canDown} onClick={() => onRow(() => void moveDayItem(tripId, it.id, "down"))} className={iconBtn}>
+        <ArrowDown aria-hidden="true" className="size-4" />
+      </button>
+      <button type="button" aria-label={`${it.title} bearbeiten`} onClick={() => setEditing(true)} className={iconBtn}>
+        <Pencil aria-hidden="true" className="size-4" />
+      </button>
+      <button type="button" aria-label={`${it.title} löschen`} onClick={() => onRow(() => void deleteDayItem(tripId, it.id))} className={iconBtn}>
+        <Trash2 aria-hidden="true" className="size-4" />
+      </button>
+    </li>
   );
 }

@@ -157,3 +157,53 @@ export async function applyDaySuggestions(tripId: string, day: string, _prev: Da
   const err = await insertItems(tripId, day, chosen, "ai");
   return err ? { message: err } : null;
 }
+
+const editSchema = itemSchema;
+
+export async function updateDayItem(tripId: string, itemId: string, _prev: DayState, fd: FormData): Promise<DayState> {
+  if (!uuid.safeParse(tripId).success || !uuid.safeParse(itemId).success) return { message: "Ungültige Angaben." };
+  const plan_b = fd.get("plan_b") === "on";
+  const parsed = editSchema.safeParse({
+    title: fd.get("title") ?? "",
+    start_time: plan_b ? "" : (fd.get("start_time") ?? ""),
+    end_time: plan_b ? "" : (fd.get("end_time") ?? ""),
+    description: String(fd.get("description") ?? ""),
+    plan_b,
+  });
+  if (!parsed.success) return { message: parsed.error.issues[0].message };
+  const supabase = await createClient();
+  const { error } = await supabase.from("day_plan_items").update(parsed.data).eq("id", itemId);
+  if (error) {
+    console.error("updateDayItem failed:", error.code);
+    return { message: "Das Speichern ist fehlgeschlagen." };
+  }
+  revalidatePath(`/trips/${tripId}/days`);
+  return null;
+}
+
+/** Verschiebt einen Punkt ohne Uhrzeit innerhalb seiner Gruppe (Plan A bzw. Plan B). */
+export async function moveDayItem(tripId: string, itemId: string, dir: "up" | "down") {
+  if (!uuid.safeParse(tripId).success || !uuid.safeParse(itemId).success) return;
+  const supabase = await createClient();
+  const { data: item } = await supabase
+    .from("day_plan_items")
+    .select("id, day_plan_id, plan_b, start_time")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (!item || item.start_time) return;
+  const { data: group } = await supabase
+    .from("day_plan_items")
+    .select("id, sort_order")
+    .eq("day_plan_id", item.day_plan_id)
+    .eq("plan_b", item.plan_b)
+    .is("start_time", null)
+    .order("sort_order")
+    .order("id");
+  const ids = (group ?? []).map((g) => g.id as string);
+  const i = ids.indexOf(itemId);
+  const j = dir === "up" ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  await Promise.all(ids.map((id, n) => supabase.from("day_plan_items").update({ sort_order: n }).eq("id", id)));
+  revalidatePath(`/trips/${tripId}/days`);
+}
