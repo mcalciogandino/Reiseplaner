@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { DateTimeField } from "@/components/ui/date-time-field";
 import { Field } from "@/components/ui/field";
+import { LocationPicker } from "@/components/location-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { EMPTY_ADDRESS, type PlaceHit } from "@/lib/geocode";
 import { zoneOptions } from "@/lib/timezone";
 import { VEHICLE_LABELS } from "@/lib/vehicles";
 import type { VehicleFormState } from "./actions";
@@ -29,6 +31,27 @@ export function VehicleForm({
   const [pickupTz, setPickupTz] = useState(v("pickup_tz"));
   const [ret, setRet] = useState(v("return_local"));
   const [retTz, setRetTz] = useState(v("return_tz"));
+  const [pickupPlace, setPickupPlace] = useState(v("pickup_place"));
+  const [returnPlace, setReturnPlace] = useState(v("return_place"));
+  // Zuletzt automatisch gesetzter Name je Seite: nur den ersetzt ein neuer Treffer.
+  const auto = useRef<{ pickup: string | null; return: string | null }>({ pickup: null, return: null });
+
+  function onPickup(h: PlaceHit) {
+    const name = h.name ?? h.label;
+    if (name && (pickupPlace.trim() === "" || pickupPlace === auto.current.pickup)) {
+      setPickupPlace(name);
+      auto.current.pickup = name;
+    }
+    if (h.timezone) setPickupTz(h.timezone);
+  }
+  function onReturn(h: PlaceHit) {
+    const name = h.name ?? h.label;
+    if (name && (returnPlace.trim() === "" || returnPlace === auto.current.return)) {
+      setReturnPlace(name);
+      auto.current.return = name;
+    }
+    if (h.timezone) setRetTz(h.timezone);
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -51,8 +74,14 @@ export function VehicleForm({
       <fieldset className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <legend className="px-1 text-sm font-medium">Übernahme</legend>
         <Field id="pickup_place" label="Ort">
-          <Input id="pickup_place" name="pickup_place" defaultValue={v("pickup_place")} placeholder="z. B. Flughafen Vancouver" />
+          <Input id="pickup_place" name="pickup_place" value={pickupPlace} onChange={(e) => setPickupPlace(e.target.value)} placeholder="z. B. Flughafen Vancouver" />
         </Field>
+        <LocationPicker
+          prefix="pickup_"
+          defaultQuery={pickupPlace}
+          initial={{ lat: "", lng: "", label: "", address: EMPTY_ADDRESS }}
+          onPick={onPickup}
+        />
         <Field id="pickup_local" label="Datum und Uhrzeit (Ortszeit, 24 h)">
           <DateTimeField id="pickup_local" name="pickup_local" value={pickup} onChange={setPickup} />
         </Field>
@@ -71,8 +100,14 @@ export function VehicleForm({
       <fieldset className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <legend className="px-1 text-sm font-medium">Rückgabe</legend>
         <Field id="return_place" label="Ort">
-          <Input id="return_place" name="return_place" defaultValue={v("return_place")} />
+          <Input id="return_place" name="return_place" value={returnPlace} onChange={(e) => setReturnPlace(e.target.value)} />
         </Field>
+        <LocationPicker
+          prefix="return_"
+          defaultQuery={returnPlace}
+          initial={{ lat: "", lng: "", label: "", address: EMPTY_ADDRESS }}
+          onPick={onReturn}
+        />
         <Field id="return_local" label="Datum und Uhrzeit (Ortszeit, 24 h)">
           <DateTimeField id="return_local" name="return_local" value={ret} onChange={setRet} />
         </Field>
