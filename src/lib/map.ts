@@ -51,13 +51,45 @@ export type MapPoint = {
   lat: number;
   detail: string | null;
 };
+/** Übernahme- oder Rückgabeort eines Mietfahrzeugs. */
+export type MapVehiclePoint = { id: string; side: "pickup" | "return"; title: string; lng: number; lat: number; detail: string | null };
 export type MapLine = { kind: "flight" | "drive" | "route"; coords: LngLat[] };
 export type MapData = {
   points: MapPoint[];
   lines: MapLine[];
   bounds: [LngLat, LngLat] | null;
   unlocated: string[];
+  vehicles: MapVehiclePoint[];
 };
+
+type VehicleLocated = {
+  id: string;
+  kind: "car" | "camper" | "other";
+  provider: string | null;
+  vehicle_name: string | null;
+  pickup_place: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  return_place: string | null;
+  return_lat: number | null;
+  return_lng: number | null;
+};
+const VEHICLE_TITLES = { car: "Mietwagen", camper: "Camper", other: "Fahrzeug" } as const;
+
+/** Marker für Übernahme und Rückgabe von Fahrzeugen mit Standort. */
+export function vehicleMapPoints(vehicles: VehicleLocated[]): MapVehiclePoint[] {
+  const out: MapVehiclePoint[] = [];
+  for (const v of vehicles) {
+    const title = [VEHICLE_TITLES[v.kind], v.provider, v.vehicle_name].filter(Boolean).join(" · ");
+    if (v.pickup_lat !== null && v.pickup_lng !== null) {
+      out.push({ id: `${v.id}-pickup`, side: "pickup", title, lng: v.pickup_lng, lat: v.pickup_lat, detail: v.pickup_place });
+    }
+    if (v.return_lat !== null && v.return_lng !== null) {
+      out.push({ id: `${v.id}-return`, side: "return", title, lng: v.return_lng, lat: v.return_lat, detail: v.return_place });
+    }
+  }
+  return out;
+}
 
 const hasCoords = (d: Located): d is Located & { lat: number; lng: number } =>
   d.lat !== null && d.lng !== null;
@@ -71,6 +103,7 @@ export function buildMapData(
   destinations: Located[],
   transfers: (Pick<Transfer, "kind" | "from_destination_id" | "to_destination_id"> &
     Partial<Pick<Transfer, "route_geojson">>)[],
+  vehicles: VehicleLocated[] = [],
 ): MapData {
   const byId = new Map(destinations.map((d) => [d.id, d]));
   const points: MapPoint[] = [];
@@ -114,13 +147,15 @@ export function buildMapData(
     lines.push({ kind: "route", coords: [[prev.lng, prev.lat], [next.lng, next.lat]] });
   }
 
+  const vehiclePoints = vehicleMapPoints(vehicles);
   let bounds: MapData["bounds"] = null;
-  if (points.length > 0) {
-    const lngs = points.map((p) => p.lng);
-    const lats = points.map((p) => p.lat);
+  if (points.length + vehiclePoints.length > 0) {
+    const all = [...points, ...vehiclePoints];
+    const lngs = all.map((p) => p.lng);
+    const lats = all.map((p) => p.lat);
     bounds = [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]];
   }
-  return { points, lines, bounds, unlocated };
+  return { points, lines, bounds, unlocated, vehicles: vehiclePoints };
 }
 
 // ---------- Google-Maps-Links (ohne API-Schlüssel) ----------

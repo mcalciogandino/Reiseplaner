@@ -8,6 +8,20 @@ import { VEHICLE_COLUMNS, type Vehicle } from "@/lib/vehicles";
 import { updateVehicle } from "../actions";
 import { VehicleForm } from "../vehicle-form";
 
+function locationInitial(p: string, lat: number | null, lng: number | null, label: string | null, a: Record<string, string> | null) {
+  return {
+    [`${p}lat`]: lat === null ? "" : String(lat),
+    [`${p}lng`]: lng === null ? "" : String(lng),
+    [`${p}place_label`]: label ?? "",
+    [`${p}addr_street`]: a?.street ?? "",
+    [`${p}addr_house_number`]: a?.house_number ?? "",
+    [`${p}addr_postcode`]: a?.postcode ?? "",
+    [`${p}addr_city`]: a?.city ?? "",
+    [`${p}addr_region`]: a?.region ?? "",
+    [`${p}addr_country`]: a?.country ?? "",
+  };
+}
+
 type Params = Promise<{ tripId: string; vehicleId: string }>;
 
 export default function EditVehiclePage({ params }: { params: Params }) {
@@ -46,6 +60,8 @@ async function Content({ params }: { params: Params }) {
     price: v.price === null ? "" : String(v.price),
     currency: v.currency ?? "",
     notes: v.notes ?? "",
+    ...locationInitial("pickup_", v.pickup_lat, v.pickup_lng, v.pickup_label, v.pickup_address),
+    ...locationInitial("return_", v.return_lat, v.return_lng, v.return_label, v.return_address),
   };
   return (
     <>

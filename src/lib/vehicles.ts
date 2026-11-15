@@ -13,10 +13,18 @@ export type Vehicle = {
   price: number | null;
   currency: string | null;
   notes: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  pickup_label: string | null;
+  pickup_address: Record<string, string> | null;
+  return_lat: number | null;
+  return_lng: number | null;
+  return_label: string | null;
+  return_address: Record<string, string> | null;
 };
 
 export const VEHICLE_COLUMNS =
-  "id, kind, provider, vehicle_name, pickup_place, pickup_at, pickup_tz, return_place, return_at, return_tz, booking_ref, price, currency, notes";
+  "id, kind, provider, vehicle_name, pickup_place, pickup_at, pickup_tz, return_place, return_at, return_tz, booking_ref, price, currency, notes, pickup_lat, pickup_lng, pickup_label, pickup_address, return_lat, return_lng, return_label, return_address";
 
 export const VEHICLE_LABELS: Record<Vehicle["kind"], string> = { car: "Mietwagen", camper: "Camper", other: "Fahrzeug" };
 

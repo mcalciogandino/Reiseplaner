@@ -138,3 +138,12 @@ alter table transfers add column if not exists is_option boolean not null defaul
 create index if not exists transfers_option_group_idx on transfers (option_group) where option_group is not null;
 -- Von Hand festgelegte Reihenfolge der Zeitleiste (Schlüssel der Orte und Verschiebungen).
 alter table trips add column if not exists timeline_order text[] not null default '{}';
+-- Standort von Übernahme und Rückgabe eines Fahrzeugs (wie bei Reiseorten: Koordinaten, Beschriftung, Adresse).
+alter table vehicles add column if not exists pickup_lat double precision;
+alter table vehicles add column if not exists pickup_lng double precision;
+alter table vehicles add column if not exists pickup_label text;
+alter table vehicles add column if not exists pickup_address jsonb;
+alter table vehicles add column if not exists return_lat double precision;
+alter table vehicles add column if not exists return_lng double precision;
+alter table vehicles add column if not exists return_label text;
+alter table vehicles add column if not exists return_address jsonb;

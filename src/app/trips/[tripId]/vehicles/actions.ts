@@ -19,7 +19,47 @@ const local = z
 const FIELDS = [
   "kind", "provider", "vehicle_name", "pickup_place", "pickup_local", "pickup_tz", "return_place", "return_local",
   "return_tz", "booking_ref", "price", "currency", "notes",
+  ...(["pickup_", "return_"] as const).flatMap((p) =>
+    ["lat", "lng", "place_label", "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country"].map((f) => `${p}${f}`),
+  ),
 ] as const;
+
+const coord = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .refine((v) => v === null || (Number.isFinite(v) && v >= min && v <= max), "Ungültiger Standort.");
+const addrPart = z.string().trim().max(150).default("");
+
+function locationFields(p: "pickup_" | "return_") {
+  return {
+    [`${p}lat`]: coord(-90, 90),
+    [`${p}lng`]: coord(-180, 180),
+    [`${p}place_label`]: z.string().trim().max(200).default(""),
+    [`${p}addr_street`]: addrPart,
+    [`${p}addr_house_number`]: addrPart,
+    [`${p}addr_postcode`]: addrPart,
+    [`${p}addr_city`]: addrPart,
+    [`${p}addr_region`]: addrPart,
+    [`${p}addr_country`]: addrPart,
+  };
+}
+
+/** Standort einer Seite für die Datenbank; ohne vollständige Koordinaten bleibt alles leer. */
+function locationOut(d: Record<string, unknown>, p: "pickup" | "return") {
+  const lat = d[`${p}_lat`] as number | null;
+  const lng = d[`${p}_lng`] as number | null;
+  const has = lat !== null && lng !== null;
+  const a = (k: string) => String(d[`${p}_addr_${k}`] ?? "");
+  const address = { street: a("street"), house_number: a("house_number"), postcode: a("postcode"), city: a("city"), region: a("region"), country: a("country") };
+  return {
+    [`${p}_lat`]: has ? lat : null,
+    [`${p}_lng`]: has ? lng : null,
+    [`${p}_label`]: has ? String(d[`${p}_place_label`] ?? "") || null : null,
+    [`${p}_address`]: has ? address : null,
+  };
+}
 
 const schema = z
   .object({
@@ -44,6 +84,8 @@ const schema = z
       .refine((v) => v === "" || /^[A-Za-z]{3}$/.test(v), "Bitte die Währung mit drei Buchstaben angeben, z. B. CAD.")
       .transform((v) => (v === "" ? null : v.toUpperCase())),
     notes: optText(500),
+    ...locationFields("pickup_"),
+    ...locationFields("return_"),
   })
   .superRefine((d, ctx) => {
     if (d.pickup_local && !isValidTimeZone(d.pickup_tz)) {
@@ -67,6 +109,8 @@ const schema = z
     price: d.price,
     currency: d.price !== null ? (d.currency ?? "CAD") : d.currency,
     notes: d.notes,
+    ...locationOut(d, "pickup"),
+    ...locationOut(d, "return"),
   }))
   .refine((d) => !d.pickup_at || !d.return_at || d.return_at > d.pickup_at, {
     message: "Die Rückgabe muss nach der Übernahme liegen.",
