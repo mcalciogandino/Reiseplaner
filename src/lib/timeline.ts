@@ -38,7 +38,7 @@ const dayStart = (date: string | null) => (date ? Date.parse(`${date}T00:00:00Z`
  * - Ohne jede Zeitangabe bleibt die Reihenfolge der Route (bzw. Eingabe) erhalten: das Element
  *   folgt auf das vorherige Element seiner Art.
  */
-export function buildTimeline(destinations: Destination[], transfers: Transfer[]): TimelineNode[] {
+export function buildTimeline(destinations: Destination[], transfers: Transfer[], pinned: string[] = []): TimelineNode[] {
   const entries: Entry[] = [];
   let seq = 0;
 
@@ -122,6 +122,7 @@ export function buildTimeline(destinations: Destination[], transfers: Transfer[]
   }
 
   entries.sort((x, y) => x.time - y.time || x.rank - y.rank || x.seq - y.seq);
+  applyPinned(entries, pinned);
 
   // Gleiche freie Orte direkt hintereinander nur einmal zeigen (z. B. Umstieg am selben Flughafen).
   const nodes: TimelineNode[] = [];
@@ -140,6 +141,35 @@ export function buildTimeline(destinations: Destination[], transfers: Transfer[]
     if (n.date) current = n.date;
     return n.date === current ? n : { ...n, date: current };
   });
+}
+
+/**
+ * Von Hand festgelegte Reihenfolge: Orte und Verschiebungen aus `pinned` tauschen untereinander
+ * ihre Plätze (in der Reihenfolge der Liste); alles andere bleibt, wo die Zeit es hinstellt.
+ * Freie Orte folgen anschliessend ihrer Verschiebung (davor bzw. danach).
+ */
+function applyPinned(entries: Entry[], pinned: string[]) {
+  if (pinned.length === 0) return;
+  const mainKey = (e: Entry) => (e.node.type === "free" ? null : e.node.key);
+  const present = new Map(entries.flatMap((e) => (mainKey(e) ? [[mainKey(e)!, e] as const] : [])));
+  const order = pinned.filter((k, i) => present.has(k) && pinned.indexOf(k) === i);
+  if (order.length < 2) return;
+  const slots = entries.flatMap((e, i) => (mainKey(e) && order.includes(mainKey(e)!) ? [i] : []));
+  slots.forEach((slot, n) => {
+    entries[slot] = present.get(order[n])!;
+  });
+  // Freie Orte neben ihre festgelegte Verschiebung setzen.
+  for (const side of ["from", "to"] as const) {
+    for (const k of order) {
+      if (!k.startsWith("t-")) continue;
+      const id = k.slice(2);
+      const fi = entries.findIndex((e) => e.node.type === "free" && e.node.key === `f-${id}-${side}`);
+      if (fi < 0) continue;
+      const [free] = entries.splice(fi, 1);
+      const ti = entries.findIndex((e) => e.node.key === k);
+      entries.splice(side === "from" ? ti : ti + 1, 0, free);
+    }
+  }
 }
 
 /**

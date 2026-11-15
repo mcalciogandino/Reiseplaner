@@ -109,3 +109,26 @@ describe("dayHeaders", () => {
     expect(dayHeaders([place(null), place("2027-07-03")])).toEqual(["open", "2027-07-03"]);
   });
 });
+
+describe("buildTimeline mit festgelegter Reihenfolge", () => {
+  const dests = [dest("yul", { arrival_date: "2027-06-28" }), dest("hotel", { arrival_date: "2027-06-28" })];
+  const legs = [tr("s", { from_destination_id: "yul", to_destination_id: "hotel", from_place: "Flughafen", to_place: "Hotel" })];
+
+  it("tauscht Plätze und lässt freie Orte bei ihrer Verschiebung", () => {
+    const base = buildTimeline(dests, legs);
+    const mains = base.filter((n) => n.type !== "free").map((n) => n.key);
+    expect(mains).toHaveLength(3);
+    const swapped = [...mains];
+    [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
+    const out = buildTimeline(dests, legs, swapped);
+    expect(out.filter((n) => n.type !== "free").map((n) => n.key)).toEqual(swapped);
+    const i = out.findIndex((n) => n.key === "t-s");
+    expect(out[i - 1].key).toBe("f-s-from");
+    expect(out[i + 1].key).toBe("f-s-to");
+  });
+
+  it("ignoriert unbekannte Schlüssel und kurze Listen", () => {
+    const base = buildTimeline(dests, legs);
+    expect(buildTimeline(dests, legs, ["p-gibtesnicht", "t-s"]).map((n) => n.key)).toEqual(base.map((n) => n.key));
+  });
+});

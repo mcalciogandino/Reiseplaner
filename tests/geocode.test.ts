@@ -23,6 +23,7 @@ describe("parseNominatim", () => {
     expect(hits).toEqual([
       {
         label: "Whistler, British Columbia, Kanada",
+        name: "Village Gate Boulevard 4090",
         lat: 50.11632,
         lng: -122.957356,
         kind: "village",
@@ -74,5 +75,19 @@ describe("parseAddress", () => {
     });
     expect(parseAddress(undefined).city).toBe("");
     expect(parseAddress({ road: 5 }).street).toBe("");
+  });
+});
+
+describe("hitName", () => {
+  const addr = { street: "", house_number: "", postcode: "", city: "", region: "", country: "" };
+  it("nimmt zuerst den Namen des Ortes", async () => {
+    const { hitName } = await import("../src/lib/geocode");
+    expect(hitName("Flughafen Montréal-Trudeau", { ...addr, street: "Boulevard Roméo-Vachon" })).toBe("Flughafen Montréal-Trudeau");
+  });
+  it("fällt auf Strasse mit Nummer, dann auf die Stadt zurück", async () => {
+    const { hitName } = await import("../src/lib/geocode");
+    expect(hitName("", { ...addr, street: "Rue Saint-Denis", house_number: "12" })).toBe("Rue Saint-Denis 12");
+    expect(hitName(undefined, { ...addr, city: "Montréal" })).toBe("Montréal");
+    expect(hitName(undefined, addr)).toBeNull();
   });
 });
