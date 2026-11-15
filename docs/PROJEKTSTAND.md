@@ -138,3 +138,4 @@ Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
 - Tagesplan: Punkte bearbeiten und per Pfeil verschieben (nur Punkte ohne Uhrzeit; Punkte mit Zeit sortieren sich nach Zeit).
 - Zeitleiste: Pfeile bei jedem Ort und jeder Verschiebung tauschen sie mit dem Nachbarn; die Reihenfolge wird in `trips.timeline_order` gespeichert (Migration `20261111310000_timeline_order.sql`), «Reihenfolge zurücksetzen» sortiert wieder nach Zeit. Verschiebungen sind nummeriert («Verschiebung 1 …»).
 - Adresssuche im Ortsformular setzt den Namen aus dem Treffer, wenn das Feld leer ist oder noch den zuletzt automatisch gesetzten Namen enthält.
+- Fahrzeuge speichern Standort von Übernahme und Rückgabe (Koordinaten, Beschriftung, Adresse; Migration `20261111320000_vehicle_locations.sql`); die Karte zeigt sie als blaue Marker Ü und R.

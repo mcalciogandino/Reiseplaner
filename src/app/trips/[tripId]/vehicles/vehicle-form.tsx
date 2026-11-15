@@ -78,8 +78,22 @@ export function VehicleForm({
         </Field>
         <LocationPicker
           prefix="pickup_"
+          key={`${v("pickup_lat")},${v("pickup_lng")}`}
           defaultQuery={pickupPlace}
-          initial={{ lat: "", lng: "", label: "", address: EMPTY_ADDRESS }}
+          initial={{
+            lat: v("pickup_lat"),
+            lng: v("pickup_lng"),
+            label: v("pickup_place_label"),
+            address: {
+              ...EMPTY_ADDRESS,
+              street: v("pickup_addr_street"),
+              house_number: v("pickup_addr_house_number"),
+              postcode: v("pickup_addr_postcode"),
+              city: v("pickup_addr_city"),
+              region: v("pickup_addr_region"),
+              country: v("pickup_addr_country"),
+            },
+          }}
           onPick={onPickup}
         />
         <Field id="pickup_local" label="Datum und Uhrzeit (Ortszeit, 24 h)">
@@ -104,8 +118,22 @@ export function VehicleForm({
         </Field>
         <LocationPicker
           prefix="return_"
+          key={`${v("return_lat")},${v("return_lng")}`}
           defaultQuery={returnPlace}
-          initial={{ lat: "", lng: "", label: "", address: EMPTY_ADDRESS }}
+          initial={{
+            lat: v("return_lat"),
+            lng: v("return_lng"),
+            label: v("return_place_label"),
+            address: {
+              ...EMPTY_ADDRESS,
+              street: v("return_addr_street"),
+              house_number: v("return_addr_house_number"),
+              postcode: v("return_addr_postcode"),
+              city: v("return_addr_city"),
+              region: v("return_addr_region"),
+              country: v("return_addr_country"),
+            },
+          }}
           onPick={onReturn}
         />
         <Field id="return_local" label="Datum und Uhrzeit (Ortszeit, 24 h)">

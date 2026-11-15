@@ -80,6 +80,31 @@ export function TripMap({ data }: { data: MapData }) {
           .addTo(map);
       }
 
+      for (const v of data.vehicles) {
+        const el = document.createElement("button");
+        el.type = "button";
+        const letter = v.side === "pickup" ? "Ü" : "R";
+        el.textContent = letter;
+        el.setAttribute("aria-label", `${v.side === "pickup" ? "Übernahme" : "Rückgabe"}: ${v.title}`);
+        el.style.cssText =
+          "width:28px;height:28px;border-radius:6px;border:2px solid #fff;background:#1d4ed8;color:#fff;" +
+          "font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4)";
+        const box = document.createElement("div");
+        const t = document.createElement("strong");
+        t.textContent = `${v.side === "pickup" ? "Übernahme" : "Rückgabe"}: ${v.title}`;
+        box.appendChild(t);
+        if (v.detail) {
+          const d = document.createElement("div");
+          d.textContent = v.detail;
+          box.appendChild(d);
+        }
+        box.style.cssText = "color:#171717;font:14px system-ui,sans-serif;line-height:20px";
+        new maplibregl.Marker({ element: el })
+          .setLngLat([v.lng, v.lat])
+          .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setDOMContent(box))
+          .addTo(map);
+      }
+
       if (data.bounds) {
         map.fitBounds(data.bounds, { padding: 56, maxZoom: 9, duration: 0 });
       }

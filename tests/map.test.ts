@@ -111,3 +111,20 @@ describe("Google-Maps-Links", () => {
     expect(transferMapsUrl(t, [])).toBeNull();
   });
 });
+
+describe("vehicleMapPoints", () => {
+  it("macht Marker für Übernahme und Rückgabe mit Standort", async () => {
+    const { vehicleMapPoints, buildMapData } = await import("../src/lib/map");
+    const v = {
+      id: "v1", kind: "camper" as const, provider: "Canadream", vehicle_name: null,
+      pickup_place: "Flughafen Vancouver", pickup_lat: 49.19, pickup_lng: -123.18,
+      return_place: "Calgary", return_lat: null, return_lng: null,
+    };
+    const pts = vehicleMapPoints([v]);
+    expect(pts).toHaveLength(1);
+    expect(pts[0]).toMatchObject({ side: "pickup", title: "Camper · Canadream", detail: "Flughafen Vancouver" });
+    const data = buildMapData([], [], [v]);
+    expect(data.vehicles).toHaveLength(1);
+    expect(data.bounds).not.toBeNull();
+  });
+});

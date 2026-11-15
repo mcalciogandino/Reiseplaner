@@ -9,6 +9,7 @@ import { buildMapData } from "@/lib/map";
 import { createClient } from "@/lib/supabase/server";
 import { TRANSFER_COLUMNS, type Transfer } from "@/lib/transfers";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips";
+import { VEHICLE_COLUMNS, type Vehicle } from "@/lib/vehicles";
 import { TripMap } from "./trip-map";
 
 type Params = Promise<{ tripId: string }>;
@@ -35,7 +36,7 @@ async function Content({ params }: { params: Params }) {
     .maybeSingle<Trip>();
   if (!trip) notFound();
 
-  const [{ data: stops, error: stopsError }, { data: legs, error: legsError }] = await Promise.all([
+  const [{ data: stops, error: stopsError }, { data: legs, error: legsError }, { data: cars }] = await Promise.all([
     supabase
       .from("destinations")
       .select(DESTINATION_COLUMNS)
@@ -44,10 +45,11 @@ async function Content({ params }: { params: Params }) {
       .order("created_at", { ascending: true })
       .returns<Destination[]>(),
     supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).eq("is_option", false).returns<Transfer[]>(),
+    supabase.from("vehicles").select(VEHICLE_COLUMNS).eq("trip_id", tripId).returns<Vehicle[]>(),
   ]);
 
   const loadError = dbErrorMessage(stopsError, legsError);
-  const data = buildMapData(stops ?? [], legs ?? []);
+  const data = buildMapData(stops ?? [], legs ?? [], cars ?? []);
 
   return (
     <>
@@ -58,7 +60,7 @@ async function Content({ params }: { params: Params }) {
 
       {loadError ? (
         <DbErrorNotice message={loadError} />
-      ) : data.points.length === 0 ? (
+      ) : data.points.length + data.vehicles.length === 0 ? (
         <Card>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             Noch kein Reiseort hat einen Standort. Öffne einen Ort und suche bei «Standort auf der Karte»
@@ -78,6 +80,11 @@ async function Content({ params }: { params: Params }) {
             <li className="flex items-center gap-2">
               <span aria-hidden="true" className="inline-block w-8 border-t-2 border-dashed border-neutral-600" /> Reihenfolge ohne Verschiebung
             </li>
+            {data.vehicles.length > 0 && (
+              <li className="flex items-center gap-2">
+                <span aria-hidden="true" className="inline-block size-3 rounded-full bg-blue-700" /> Fahrzeug: Übernahme (Ü) und Rückgabe (R)
+              </li>
+            )}
           </ul>
         </>
       )}
