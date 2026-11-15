@@ -18,7 +18,7 @@ import {
   durationMinutes, formatDuration, formatLocal, KIND_LABELS, type Transfer, type TransferKind,
 } from "@/lib/transfers";
 import { formatDate } from "@/lib/trips";
-import { moveDestination } from "@/app/trips/[tripId]/destinations/actions";
+import { moveNode, resetOrder } from "@/app/trips/[tripId]/timeline-actions";
 import { chooseOption } from "@/app/trips/[tripId]/transfers/actions";
 
 const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
@@ -50,6 +50,7 @@ export function Timeline({
   nodes,
   destinations,
   options,
+  pinned = false,
 }: {
   tripId: string;
   startDate: string;
@@ -57,14 +58,29 @@ export function Timeline({
   destinations: Destination[];
   /** Alternativen je Verbindung, Schlüssel: option_group. */
   options?: Map<string, Transfer[]>;
+  /** Reihenfolge wurde von Hand festgelegt. */
+  pinned?: boolean;
 }) {
   const stopName = new Map(destinations.map((d) => [d.id, d.name]));
-  const firstIndex = new Map(destinations.map((d, i) => [d.id, i]));
+  // Erster und letzter Ort/Verschiebung (ohne freie Orte): dort ist je ein Pfeil gesperrt.
+  const mainKeys = nodes.filter((n) => n.type !== "free").map((n) => n.key);
+  const numbers = new Map<string, number>();
+  nodes.forEach((n) => {
+    if (n.type === "transfer") numbers.set(n.key, numbers.size + 1);
+  });
 
   // Tagesüberschrift vor dem ersten Element eines neuen Tages («Tag 1», «Tag 2» …).
   const headers = dayHeaders(nodes);
 
   return (
+    <>
+    {pinned && (
+      <form action={resetOrder.bind(null, tripId)} className="mb-2">
+        <button type="submit" className="inline-flex min-h-11 items-center text-sm underline">
+          Reihenfolge zurücksetzen (wieder nach Zeit sortieren)
+        </button>
+      </form>
+    )}
     <ol aria-label="Zeitleiste" className="flex flex-col">
       {nodes.map((node, i) => (
         <li key={node.key} className="contents">
@@ -79,15 +95,19 @@ export function Timeline({
               <PlaceCard
                 tripId={tripId}
                 d={node.destination}
-                canMove={!node.dated}
-                first={firstIndex.get(node.destination.id) === 0}
-                last={firstIndex.get(node.destination.id) === destinations.length - 1}
+                nodeKey={node.key}
+                first={mainKeys[0] === node.key}
+                last={mainKeys[mainKeys.length - 1] === node.key}
               />
             )}
             {node.type === "transfer" && (
               <TransferCard
                 tripId={tripId}
                 t={node.transfer}
+                number={numbers.get(node.key) ?? 0}
+                nodeKey={node.key}
+                first={mainKeys[0] === node.key}
+                last={mainKeys[mainKeys.length - 1] === node.key}
                 stopName={stopName}
                 destinations={destinations}
                 options={(node.transfer.option_group && options?.get(node.transfer.option_group)) || []}
@@ -106,6 +126,7 @@ export function Timeline({
         <AddRow tripId={tripId} nodes={nodes} index={nodes.length} />
       </li>
     </ol>
+    </>
   );
 }
 
@@ -199,8 +220,8 @@ function AddRow({ tripId, nodes, index }: { tripId: string; nodes: TimelineNode[
 }
 
 function PlaceCard({
-  tripId, d, canMove, first, last,
-}: { tripId: string; d: Destination; canMove: boolean; first: boolean; last: boolean }) {
+  tripId, d, nodeKey, first, last,
+}: { tripId: string; d: Destination; nodeKey: string; first: boolean; last: boolean }) {
   const tz = TIMEZONES.find((t) => t.value === d.timezone)?.label;
   const n =
     d.arrival_date && d.departure_date
@@ -242,36 +263,34 @@ function PlaceCard({
           {tz && <p>{tz}</p>}
         </div>
       </div>
-      {canMove && (
-        <div className="relative z-10 flex shrink-0 gap-1">
-          <MoveButton tripId={tripId} destId={d.id} direction="up" disabled={first} />
-          <MoveButton tripId={tripId} destId={d.id} direction="down" disabled={last} />
-        </div>
-      )}
+      <MoveButtons tripId={tripId} nodeKey={nodeKey} first={first} last={last} />
     </Card>
   );
 }
 
-function MoveButton({
-  tripId, destId, direction, disabled,
-}: { tripId: string; destId: string; direction: "up" | "down"; disabled: boolean }) {
+function MoveButtons({
+  tripId, nodeKey, first, last,
+}: { tripId: string; nodeKey: string; first: boolean; last: boolean }) {
+  const btn =
+    "flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-300 hover:bg-neutral-100 disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800";
   return (
-    <form action={moveDestination.bind(null, tripId, destId, direction)}>
-      <button
-        type="submit"
-        disabled={disabled}
-        aria-label={direction === "up" ? "Nach oben" : "Nach unten"}
-        className="flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-300 hover:bg-neutral-100 disabled:opacity-30 dark:border-neutral-700 dark:hover:bg-neutral-800"
-      >
-        {direction === "up" ? "↑" : "↓"}
-      </button>
-    </form>
+    <div className="relative z-10 flex shrink-0 gap-1">
+      <form action={moveNode.bind(null, tripId, nodeKey, "up")}>
+        <button type="submit" disabled={first} aria-label="Nach oben" className={btn}>↑</button>
+      </form>
+      <form action={moveNode.bind(null, tripId, nodeKey, "down")}>
+        <button type="submit" disabled={last} aria-label="Nach unten" className={btn}>↓</button>
+      </form>
+    </div>
   );
 }
 
 function TransferCard({
-  tripId, t, stopName, destinations, options,
-}: { tripId: string; t: Transfer; stopName: Map<string, string>; destinations: Destination[]; options: Transfer[] }) {
+  tripId, t, number, nodeKey, first, last, stopName, destinations, options,
+}: {
+  tripId: string; t: Transfer; number: number; nodeKey: string; first: boolean; last: boolean;
+  stopName: Map<string, string>; destinations: Destination[]; options: Transfer[];
+}) {
   const from = (t.from_destination_id && stopName.get(t.from_destination_id)) || t.from_place;
   const to = (t.to_destination_id && stopName.get(t.to_destination_id)) || t.to_place;
   const route = [from, to].filter(Boolean).join(" → ");
@@ -288,8 +307,10 @@ function TransferCard({
 
   return (
     <>
+      <div className="relative">
       <Link href={`/trips/${tripId}/transfers/${t.id}`} className="block">
-        <Card className="transition-colors hover:border-red-700">
+        <Card className="pr-28 transition-colors hover:border-red-700">
+          <p className="text-xs text-neutral-500">Verschiebung {number}</p>
           <h3 className="font-semibold">
             {KIND_LABELS[t.kind]}
             {route && <span className="font-normal"> · {route}</span>}
@@ -311,6 +332,10 @@ function TransferCard({
           </div>
         </Card>
       </Link>
+      <div className="absolute right-3 top-3">
+        <MoveButtons tripId={tripId} nodeKey={nodeKey} first={first} last={last} />
+      </div>
+      </div>
       {mapsUrl && (
         <a
           href={mapsUrl}

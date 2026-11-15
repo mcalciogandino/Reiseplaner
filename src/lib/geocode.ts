@@ -16,6 +16,8 @@ export const EMPTY_ADDRESS: Address = {
 
 export type PlaceHit = {
   label: string;
+  /** Kurzer Name zum Übernehmen ins Namensfeld (Name des Ortes, sonst Strasse/Ort). */
+  name: string | null;
   lat: number;
   lng: number;
   kind: string | null;
@@ -28,6 +30,7 @@ const nominatimItem = z.object({
   lat: z.string(),
   lon: z.string(),
   display_name: z.string(),
+  name: z.string().optional(),
   type: z.string().optional(),
   addresstype: z.string().optional(),
   address: z.record(z.string(), z.unknown()).optional(),
@@ -64,6 +67,14 @@ export function isValidCoord(lat: number, lng: number): boolean {
   );
 }
 
+/** Kurzname eines Treffers: der Name des Ortes, sonst «Strasse Nr.», sonst die Stadt. */
+export function hitName(name: string | undefined, a: Address): string | null {
+  const n = name?.trim();
+  if (n) return n.slice(0, 100);
+  const street = [a.street, a.house_number].filter(Boolean).join(" ").trim();
+  return (street || a.city || null)?.slice(0, 100) ?? null;
+}
+
 /** Wandelt die Antwort von Nominatim in unsere Treffer um; ungültige Einträge entfallen. */
 export function parseNominatim(json: unknown): PlaceHit[] {
   if (!Array.isArray(json)) return [];
@@ -74,12 +85,14 @@ export function parseNominatim(json: unknown): PlaceHit[] {
     const lat = Number(item.data.lat);
     const lng = Number(item.data.lon);
     if (!isValidCoord(lat, lng)) continue;
+    const address = parseAddress(item.data.address);
     hits.push({
       label: item.data.display_name.slice(0, 200),
+      name: hitName(item.data.name, address),
       lat: roundCoord(lat),
       lng: roundCoord(lng),
       kind: item.data.addresstype ?? item.data.type ?? null,
-      address: parseAddress(item.data.address),
+      address,
       timezone: null,
     });
   }

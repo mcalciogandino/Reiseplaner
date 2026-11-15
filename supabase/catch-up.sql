@@ -136,3 +136,5 @@ alter table budget_entries add constraint budget_entries_category_check check (c
 alter table transfers add column if not exists option_group uuid;
 alter table transfers add column if not exists is_option boolean not null default false;
 create index if not exists transfers_option_group_idx on transfers (option_group) where option_group is not null;
+-- Von Hand festgelegte Reihenfolge der Zeitleiste (Schlüssel der Orte und Verschiebungen).
+alter table trips add column if not exists timeline_order text[] not null default '{}';

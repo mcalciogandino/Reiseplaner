@@ -40,6 +40,9 @@ export function DestinationForm({
   const [arrival, setArrival] = useState(v("arrival_date"));
   const [kind, setKind] = useState(v("kind") || "city");
   const [timezone, setTimezone] = useState(v("timezone"));
+  const [name, setName] = useState(v("name"));
+  // Letzter automatisch eingesetzter Name: nur dieser (oder ein leeres Feld) wird durch einen neuen Treffer ersetzt.
+  const autoName = useRef<string | null>(null);
   const [derived, setDerived] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [description, setDescription] = useState(v("description"));
@@ -72,7 +75,14 @@ export function DestinationForm({
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <Field id="name" label="Ort">
-        <Input id="name" name="name" required defaultValue={v("name")} placeholder="z. B. Whistler" />
+        <Input
+          id="name"
+          name="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="z. B. Whistler"
+        />
       </Field>
       <Field id="kind" label="Art des Ortes">
         <Combobox
@@ -143,6 +153,10 @@ export function DestinationForm({
         }}
         defaultQuery={v("name")}
         onPick={(h) => {
+          if (h.name && (name.trim() === "" || name === autoName.current)) {
+            setName(h.name);
+            autoName.current = h.name;
+          }
           if (h.timezone) {
             setTimezone(h.timezone);
             setDerived(true);

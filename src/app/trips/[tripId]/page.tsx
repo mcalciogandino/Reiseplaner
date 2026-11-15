@@ -49,6 +49,9 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     .maybeSingle<Trip>();
   if (!trip) notFound();
 
+  const { data: orderRow } = await supabase.from("trips").select("timeline_order").eq("id", tripId).maybeSingle();
+  const pinned = (orderRow?.timeline_order as string[] | null) ?? [];
+
   const { data: stops, error: stopsError } = await supabase
     .from("destinations")
     .select(DESTINATION_COLUMNS)
@@ -72,7 +75,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
     if (t.is_option && t.option_group) options.set(t.option_group, [...(options.get(t.option_group) ?? []), t]);
   }
   const loadError = dbErrorMessage(stopsError, legsError);
-  const nodes = buildTimeline(destinations, transfers);
+  const nodes = buildTimeline(destinations, transfers, pinned);
   const warnings = routeWarnings(trip, destinations);
 
   return (
@@ -160,7 +163,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
             </Link>
           </Card>
         ) : (
-          <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} options={options} />
+          <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} options={options} pinned={pinned.length > 0} />
         )}
       </section>
 

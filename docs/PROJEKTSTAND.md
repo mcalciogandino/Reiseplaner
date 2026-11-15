@@ -136,3 +136,5 @@ Bucket List, Tagesplan, Budget und Dashboard; «Wer bist du?» pro Gerät.
 - Bucket List `/trips/[id]/activities`: Ideen mit Wichtigkeit, Kosten, Link, Reservationshinweis; Stimmen («Dafür») pro Name (Name im Browser gespeichert, da ein gemeinsames Konto), Status, «Zum Tag» legt einen Tagesplanpunkt an (`day_plan_items.activity_id`), KI-Ideen mit Auswahl. Geplante/erledigte Aktivitäten mit Kosten fliessen ins Budget (Kategorie «Aktivitäten»). Keine neue Migration.
 - Budget: Posten bearbeiten und eigener Kurs je Posten (`rate_to_base`).
 - Tagesplan: Punkte bearbeiten und per Pfeil verschieben (nur Punkte ohne Uhrzeit; Punkte mit Zeit sortieren sich nach Zeit).
+- Zeitleiste: Pfeile bei jedem Ort und jeder Verschiebung tauschen sie mit dem Nachbarn; die Reihenfolge wird in `trips.timeline_order` gespeichert (Migration `20261111310000_timeline_order.sql`), «Reihenfolge zurücksetzen» sortiert wieder nach Zeit. Verschiebungen sind nummeriert («Verschiebung 1 …»).
+- Adresssuche im Ortsformular setzt den Namen aus dem Treffer, wenn das Feld leer ist oder noch den zuletzt automatisch gesetzten Namen enthält.
