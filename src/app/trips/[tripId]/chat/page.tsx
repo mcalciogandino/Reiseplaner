@@ -15,18 +15,21 @@ import { ChatView, type ChatMessage } from "./chat-view";
 // Die KI (mit optionaler Websuche) und die Standortsuche brauchen einige Sekunden.
 export const maxDuration = 300;
 
-export default function ChatPage({ params }: { params: Promise<{ tripId: string }> }) {
+type Search = Promise<{ q?: string }>;
+
+export default function ChatPage({ params, searchParams }: { params: Promise<{ tripId: string }>; searchParams: Search }) {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4">
       <Suspense fallback={<p>Lädt …</p>}>
-        <Content params={params} />
+        <Content params={params} searchParams={searchParams} />
       </Suspense>
     </main>
   );
 }
 
-async function Content({ params }: { params: Promise<{ tripId: string }> }) {
+async function Content({ params, searchParams }: { params: Promise<{ tripId: string }>; searchParams: Search }) {
   const { tripId } = await params;
+  const { q } = await searchParams;
   if (!z.uuid().safeParse(tripId).success) notFound();
   const supabase = await createClient();
   const loaded = await loadTripContext(supabase, tripId);
@@ -76,7 +79,7 @@ async function Content({ params }: { params: Promise<{ tripId: string }> }) {
           </div>
         )}
       </details>
-      <ChatView tripId={tripId} messages={messages} placeNames={loaded.places.map((p) => p.name)} enabled={Boolean(settings.anthropicKey)} />
+      <ChatView tripId={tripId} messages={messages} placeNames={loaded.places.map((p) => p.name)} enabled={Boolean(settings.anthropicKey)} initialText={(q ?? "").slice(0, 1000)} />
     </>
   );
 }

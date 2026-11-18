@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Timeline } from "@/components/timeline";
 import { ReviewCard } from "./review-card";
+import { PlanCheckCard } from "./plan-check-card";
 import { VariantBar } from "./variants/variant-bar";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { routeWarnings } from "@/lib/route-warnings";
@@ -200,6 +201,8 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <Timeline tripId={tripId} startDate={trip.start_date} nodes={nodes} destinations={destinations} options={options} pinned={pinned.length > 0} />
         )}
       </section>
+
+      <PlanCheckCard tripId={tripId} trip={trip} places={destinations} transfers={transfers} />
 
       <ReviewCard tripId={tripId} />
 

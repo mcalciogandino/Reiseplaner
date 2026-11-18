@@ -24,7 +24,7 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
       .order("sort_order", { ascending: true }),
     supabase
       .from("transfers")
-      .select("kind, from_destination_id, to_destination_id, from_place, to_place, depart_at")
+      .select("id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at")
       .eq("trip_id", tripId)
       .eq("is_option", false),
     supabase.from("vehicles").select(VEHICLE_COLUMNS).eq("trip_id", tripId).returns<Vehicle[]>(),
@@ -38,6 +38,7 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
     end_date: trip.end_date,
     places,
     transfers: (legs ?? []).map((t) => ({
+      id: t.id as string,
       kind: KIND_LABELS[t.kind as TransferKind] ?? t.kind,
       from: (t.from_destination_id && name.get(t.from_destination_id)) || t.from_place || "",
       to: (t.to_destination_id && name.get(t.to_destination_id)) || t.to_place || "",

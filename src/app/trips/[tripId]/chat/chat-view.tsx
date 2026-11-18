@@ -20,17 +20,22 @@ export function ChatView({
   messages,
   placeNames,
   enabled,
+  initialText = "",
 }: {
   tripId: string;
   messages: ChatMessage[];
   placeNames: string[];
   enabled: boolean;
+  initialText?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [state, send, sending] = useActionState<ChatState, FormData>(async (prev, fd) => {
     const res = await sendChat(tripId, prev, fd);
-    if (res?.done) formRef.current?.reset();
+    if (res?.done) {
+      formRef.current?.reset();
+      if (textRef.current) textRef.current.value = "";
+    }
     return res;
   }, null);
   const unanswered = messages.at(-1)?.role === "user";
@@ -111,6 +116,7 @@ export function ChatView({
           id="chat-text"
           ref={textRef}
           name="text"
+          defaultValue={initialText}
           required={!unanswered}
           maxLength={4000}
           rows={3}
@@ -170,6 +176,7 @@ function Proposal({ tripId, message, placeNames }: { tripId: string; message: Ch
         submitLabel={`Ausgewählte einfügen`}
         extra={
           <>
+          <ChangesPick changes={stored.changes} />
           <ExtrasPick extras={stored.extras} />
           {stored.plan.places.length > 0 ? (
             <div className="flex flex-col gap-1">
@@ -255,5 +262,39 @@ function ExtrasPick({ extras }: { extras: StoredProposal["extras"] }) {
         extras.budget.map((b, i) => ({ key: `u${i}`, text: b.description, sub: `${b.category}${fmtMoney(b.planned_amount, b.currency)}` })),
       )}
     </>
+  );
+}
+
+function ChangesPick({ changes }: { changes: StoredProposal["changes"] }) {
+  if (!changes?.length) return null;
+  return (
+    <section aria-label="Änderungen am bestehenden Plan" className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">Änderungen am bestehenden Plan ({changes.length})</h3>
+      <ul className="flex flex-col gap-2">
+        {changes.map((c, i) => {
+          const del = c.op.startsWith("delete");
+          return (
+            <li
+              key={`${c.id}-${i}`}
+              className={`flex gap-3 rounded-lg border p-3 ${del ? "border-red-700" : "border-amber-600"}`}
+            >
+              <input type="checkbox" name="x_change" value={i} defaultChecked aria-label="Übernehmen" className="mt-1 size-5 shrink-0 accent-red-700" />
+              <div className="min-w-0 flex-1 text-sm">
+                <p className={`font-medium ${del ? "text-red-700" : ""}`}>{c.title}</p>
+                {c.reason && <p className="text-neutral-600 dark:text-neutral-400">{c.reason}</p>}
+                <ul className="mt-1">
+                  {c.lines.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+                {c.warnings.map((w) => (
+                  <p key={w} className="mt-1 text-amber-800 dark:text-amber-300">{w}</p>
+                ))}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

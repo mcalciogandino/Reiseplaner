@@ -4,6 +4,7 @@ import { NO_KEY_MESSAGE, researchError, webResearch, type Creds, type MessagesCl
 import { proposalSchema, type Proposal } from "./plan";
 import { SYSTEM_PROMPT, TOOL } from "./prompt";
 import { CATEGORIES } from "../budget";
+import { changesSchema, type Change } from "./changes";
 import { PRIORITIES } from "../activities";
 
 export const CHAT_TOOL_NAME = "reply";
@@ -48,6 +49,7 @@ export const CHAT_SYSTEM = `Du bist der Reiseberater einer Webanwendung, mit der
 Du antwortest immer über das Werkzeug "${CHAT_TOOL_NAME}":
 - "message": deine Antwort im Gespräch, kurz und konkret, auf Deutsch. Stelle höchstens zwei Rückfragen auf einmal und nur, wenn sie für den nächsten Schritt wirklich nötig sind (z. B. Reisezeitraum, Interessen, Tempo, Budget, Fahrzeug). Fehlt etwas Unwichtiges, triff eine vernünftige Annahme und sag sie.
 - "extras" (optional): Aufgaben für die Checkliste (Vorbereitung oder Packliste, optional mit Frist), Ideen für die Bucket List und Budgetposten mit Kategorie, Betrag und Währung. Nur setzen, wenn die Person danach fragt oder es klar dazugehört; Beträge nur als grobe Schätzung und nie als Tatsache ausgeben.
+- "changes" (optional): Änderungen und Löschungen BESTEHENDER Orte und Verschiebungen (Operation, ID aus dem Überblick, kurzer Grund, bei Änderungen nur die zu ändernden Felder in "set"; ein Feld mit null leert es). Nutze "changes", wenn die Person etwas korrigiert, ersetzt, umplant oder entfernt haben will, und wenn du im Überblick Doppelte, Widersprüche oder falsche Daten bemerkst. Lege nie einen neuen Eintrag an, wenn ein bestehender nur angepasst werden muss. Wird ein Ort ersetzt, lösche den alten in "changes" und schlage den neuen in "proposal" vor. Ändere nur, was nötig ist, und erkläre es kurz in "message".
 - "proposal" (optional): Orte, Verschiebungen und Mietfahrzeuge, die ins Reiseprojekt eingefügt werden sollen. Lass es weg, solange du nur berätst, nachfragst oder Ideen sammelst. Setze es, sobald die Person etwas Konkretes will ("plane", "füge ein", "mach einen Vorschlag") oder ihr Wunsch klar genug ist. Bei einer ganzen Reise darfst du die gesamte Route auf einmal vorschlagen.
 
 Regeln für "proposal":
@@ -65,6 +67,32 @@ export const CHAT_TOOL = {
     properties: {
       message: { type: "string", description: "Antwort im Gespräch (Deutsch)." },
       proposal: { ...TOOL.input_schema, description: "Optional: Einträge, die eingefügt werden können." },
+      changes: {
+        type: "array",
+        description: "Optional: Änderungen und Löschungen bestehender Orte und Verschiebungen.",
+        items: {
+          type: "object",
+          properties: {
+            op: { type: "string", enum: ["update_place", "delete_place", "update_transfer", "delete_transfer"] },
+            id: { type: "string", description: "ID aus dem Überblick der Reise." },
+            reason: { type: ["string", "null"] },
+            set: {
+              type: ["object", "null"],
+              description: "Nur bei update_*: zu ändernde Felder; null leert ein Feld, ein fehlendes Feld bleibt.",
+              properties: {
+                name: { type: "string" }, arrival_date: { type: ["string", "null"], description: "YYYY-MM-DD" }, departure_date: { type: ["string", "null"], description: "YYYY-MM-DD" },
+                lodging_name: { type: ["string", "null"] }, lodging_checkin: { type: ["string", "null"], description: "HH:MM" }, lodging_checkout: { type: ["string", "null"], description: "HH:MM" },
+                lodging_price: { type: ["number", "null"] }, lodging_currency: { type: ["string", "null"] }, notes: { type: ["string", "null"] }, description: { type: ["string", "null"] },
+                kind: { type: "string" }, from_destination_id: { type: ["string", "null"] }, to_destination_id: { type: ["string", "null"] },
+                from_place: { type: ["string", "null"] }, to_place: { type: ["string", "null"] },
+                depart_local: { type: ["string", "null"], description: "YYYY-MM-DDTHH:MM Ortszeit" }, arrive_local: { type: ["string", "null"], description: "YYYY-MM-DDTHH:MM Ortszeit" },
+                carrier: { type: ["string", "null"] }, flight_number: { type: ["string", "null"] }, price: { type: ["number", "null"] }, currency: { type: ["string", "null"] },
+              },
+            },
+          },
+          required: ["op", "id"],
+        },
+      },
       extras: {
         type: "object",
         description: "Optional: Checkliste, Bucket List und Budgetposten.",
@@ -130,7 +158,7 @@ export function normalizeTurns(turns: ChatTurn[]): ChatTurn[] {
 const replySchema = z.object({ message: z.string().trim().min(1).max(8000) });
 
 export type ChatResult =
-  | { ok: true; message: string; proposal: Proposal | null; extras: Extras | null }
+  | { ok: true; message: string; proposal: Proposal | null; extras: Extras | null; changes: Change[] }
   | { ok: false; message: string };
 
 /**
@@ -171,7 +199,7 @@ export async function chatReply(
     });
     const block = res.content.find((b) => b.type === "tool_use" && b.name === CHAT_TOOL_NAME);
     if (!block || block.type !== "tool_use") return { ok: false, message: "Die KI hat nicht geantwortet. Versuche es noch einmal." };
-    const input = block.input as { message?: unknown; proposal?: unknown; extras?: unknown };
+    const input = block.input as { message?: unknown; proposal?: unknown; extras?: unknown; changes?: unknown };
     const reply = replySchema.safeParse({ message: input.message });
     if (!reply.success) return { ok: false, message: "Die Antwort der KI war unvollständig. Bitte versuche es noch einmal." };
 
@@ -192,7 +220,13 @@ export async function chatReply(
       if (parsed.success && hasExtras(parsed.data)) extras = parsed.data;
       else if (!parsed.success) message += "\n\n(Ein Teil des Vorschlags war unvollständig und wurde nicht angezeigt.)";
     }
-    return { ok: true, message, proposal, extras };
+    let changes: Change[] = [];
+    if (input.changes != null) {
+      const parsed = changesSchema.safeParse(input.changes);
+      if (parsed.success) changes = parsed.data;
+      else message += "\n\n(Die vorgeschlagenen Änderungen waren unvollständig und wurden nicht angezeigt.)";
+    }
+    return { ok: true, message, proposal, extras, changes };
   } catch (err) {
     return researchError(err);
   }
