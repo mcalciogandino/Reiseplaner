@@ -1,5 +1,6 @@
 import type { Destination } from "./destinations";
 import { utcToLocalInput, type Transfer } from "./transfers";
+import { stayConflicts } from "./route-warnings";
 import { logicalOrder } from "./timeline-order";
 
 export type Fix =
@@ -19,7 +20,7 @@ export type Finding = {
   ask?: string;
 };
 
-type D = Pick<Destination, "id" | "name" | "arrival_date" | "departure_date" | "lat" | "lng" | "lodging_name" | "lodging_price" | "lodging_booking_ref" | "booked">;
+type D = { kind?: string | null } & Pick<Destination, "id" | "name" | "arrival_date" | "departure_date" | "lat" | "lng" | "lodging_name" | "lodging_price" | "lodging_booking_ref" | "booked">;
 type T = Pick<Transfer, "id" | "kind" | "from_destination_id" | "to_destination_id" | "from_place" | "to_place" | "depart_at" | "depart_tz" | "arrive_at" | "arrive_tz">;
 
 const norm = (s: string) =>
@@ -91,21 +92,18 @@ export function checkPlan(trip: { start_date: string; end_date: string }, places
   const order = logicalOrder(live, transfers).filter((k) => k.startsWith("p-")).map((k) => byId.get(k.slice(2))!);
   const prevOf = new Map(order.map((p, i) => [p.id, order[i - 1]]));
 
-  // 2. Überschneidungen zwischen aufeinanderfolgenden Orten (mehr als eine Nacht)
-  for (let i = 1; i < order.length; i++) {
-    const a = order[i - 1];
-    const b = order[i];
-    const da = daysOf(a);
-    const db = daysOf(b);
-    if (da && db && overlapDays(da, db) > 1) {
-      out.push({
-        id: `overlap-${a.id}-${b.id}`,
-        severity: "warning",
-        title: `Zeiten überschneiden sich: «${a.name}» und «${b.name}»`,
-        detail: `${da[0]} – ${da[1]} und ${db[0]} – ${db[1]} liegen mehr als eine Nacht übereinander.`,
-        ask: `«${a.name}» (${da[0]} bis ${da[1]}) und «${b.name}» (${db[0]} bis ${db[1]}) überschneiden sich. Bitte schlage Änderungen der Daten vor, damit die Route aufgeht.`,
-      });
-    }
+  // 2. Überschneidungen von Aufenthalten (nur Übernachtungen, in zeitlicher Reihenfolge; Ausflüge zählen nicht)
+  for (const c of stayConflicts(live)) {
+    if (c.type !== "overlap" || c.nights < 2) continue;
+    const a = c.prev;
+    const b = c.next;
+    out.push({
+      id: `overlap-${a.id}-${b.id}`,
+      severity: "warning",
+      title: `Zeiten überschneiden sich: «${a.name}» und «${b.name}»`,
+      detail: `${a.arrival_date} – ${a.departure_date} und ${b.arrival_date} – ${b.departure_date} liegen ${c.nights} Nächte übereinander.`,
+      ask: `«${a.name}» (${a.arrival_date} bis ${a.departure_date}) und «${b.name}» (${b.arrival_date} bis ${b.departure_date}) überschneiden sich. Bitte schlage Änderungen der Daten vor, damit die Route aufgeht.`,
+    });
   }
 
   // 3. Orte ausserhalb des Reisezeitraums
