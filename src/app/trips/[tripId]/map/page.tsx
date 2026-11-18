@@ -7,6 +7,7 @@ import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Card } from "@/components/ui/card";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { buildMapData } from "@/lib/map";
+import { buildTimeline } from "@/lib/timeline";
 import { createClient } from "@/lib/supabase/server";
 import { TRANSFER_COLUMNS, type Transfer } from "@/lib/transfers";
 import { TRIP_COLUMNS, type Trip } from "@/lib/trips";
@@ -50,7 +51,11 @@ async function Content({ params }: { params: Params }) {
   ]);
 
   const loadError = dbErrorMessage(stopsError, legsError);
-  const data = buildMapData(stops ?? [], legs ?? [], cars ?? []);
+  // Nummern und Verbindungslinien folgen der Zeitleiste (Datum, Verschiebungen, Handreihenfolge), nicht der Eingabereihenfolge.
+  const { data: orderRow } = await supabase.from("trips").select("timeline_order").eq("id", tripId).maybeSingle();
+  const pinned = (orderRow?.timeline_order as string[] | null) ?? [];
+  const ordered = buildTimeline(stops ?? [], legs ?? [], pinned).flatMap((n) => (n.type === "place" ? [n.destination] : []));
+  const data = buildMapData(ordered, legs ?? [], cars ?? []);
 
   return (
     <>
