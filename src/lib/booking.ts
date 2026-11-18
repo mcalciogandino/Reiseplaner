@@ -2,13 +2,19 @@ import type { TransferKind } from "./transfers";
 
 export type BookStatus = "booked" | "open" | "none";
 
-type PlaceLike = { booked: boolean; lodging_name: string | null; lodging_price: number | null; lodging_booking_ref: string | null };
+type PlaceLike = { kind?: string | null; booked: boolean; lodging_name: string | null; lodging_price: number | null; lodging_booking_ref: string | null };
 type TransferLike = { booked: boolean; kind: TransferKind; booking_ref: string | null };
 
-/** Ein Ort ist buchbar, sobald er eine Unterkunft hat (oder schon als gebucht markiert ist). */
+/** Ortsarten, die man in der Regel buchen muss: Unterkünfte (auch Campingplätze) sowie Touren und Eintritte. */
+export const BOOKABLE_PLACE_KINDS: readonly string[] = [
+  "hotel", "motel", "hostel", "lodge", "bnb", "vacation_rental", "camping",
+  "activity", "attraction", "wildlife", "ski_resort",
+];
+
+/** Ein Ort ist buchbar, wenn seine Art es nahelegt oder er Unterkunftsangaben hat (oder schon als gebucht markiert ist). */
 export function placeStatus(d: PlaceLike): BookStatus {
   if (d.booked) return "booked";
-  return d.lodging_name || d.lodging_price !== null || d.lodging_booking_ref ? "open" : "none";
+  return (d.kind && BOOKABLE_PLACE_KINDS.includes(d.kind)) || d.lodging_name || d.lodging_price !== null || d.lodging_booking_ref ? "open" : "none";
 }
 
 const NO_BOOKING: TransferKind[] = ["drive", "car_pickup", "car_return", "transit", "bike"];

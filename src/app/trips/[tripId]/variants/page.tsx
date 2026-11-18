@@ -35,7 +35,7 @@ async function Content({ params }: { params: Promise<{ tripId: string }> }) {
 
   const [trips, dests, legs, cars, budget] = await Promise.all([
     supabase.from("trips").select("id, start_date, end_date, base_currency").in("id", ids),
-    supabase.from("destinations").select("trip_id, booked, lodging_name, lodging_price, lodging_booking_ref").in("trip_id", ids),
+    supabase.from("destinations").select("trip_id, kind, booked, lodging_name, lodging_price, lodging_booking_ref").in("trip_id", ids),
     supabase.from("transfers").select("trip_id, booked, kind, booking_ref, is_option").in("trip_id", ids),
     supabase.from("vehicles").select("trip_id, booked").in("trip_id", ids),
     supabase.from("budget_summary").select("trip_id, planned_base").in("trip_id", ids),
@@ -49,7 +49,7 @@ async function Content({ params }: { params: Promise<{ tripId: string }> }) {
     const c = by(cars.data, v.id);
     const cost = by(budget.data, v.id).reduce((s, r) => s + Number(r.planned_base ?? 0), 0);
     const progress = bookingProgress([
-      ...d.map((x) => placeStatus({ booked: Boolean(x.booked), lodging_name: x.lodging_name, lodging_price: x.lodging_price, lodging_booking_ref: x.lodging_booking_ref })),
+      ...d.map((x) => placeStatus({ kind: x.kind, booked: Boolean(x.booked), lodging_name: x.lodging_name, lodging_price: x.lodging_price, lodging_booking_ref: x.lodging_booking_ref })),
       ...l.map((x) => transferStatus({ booked: Boolean(x.booked), kind: x.kind, booking_ref: x.booking_ref })),
       ...c.map((x) => vehicleStatus({ booked: Boolean(x.booked) })),
     ]);
