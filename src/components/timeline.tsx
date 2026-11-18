@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import {
-  Anchor, BedDouble, Building2, Bus, Camera, Car, CircleDot, CircleParking, Coffee, Compass,
+  Anchor, BedDouble, Bike, Building2, Bus, Camera, Car, CircleDot, CircleParking, Coffee, Compass,
   Droplets, Eye, Flag, Footprints, Fuel, Hotel, House, KeyRound, Landmark, MapPin, Mountain,
   PawPrint, Plane, Route, Ship, ShoppingBag, Snowflake, Store, Tent, TrainFront, TreePine,
   Trees, Umbrella, Utensils, Waves, Wine, type LucideIcon,
@@ -25,7 +25,7 @@ import { chooseOption } from "@/app/trips/[tripId]/transfers/actions";
 
 const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
   flight: Plane, drive: Car, ferry: Ship, car_pickup: KeyRound, car_return: KeyRound,
-  train: TrainFront, taxi: Car, bus: Bus, transit: TrainFront, shuttle: Bus, other: Route,
+  train: TrainFront, taxi: Car, bus: Bus, transit: TrainFront, shuttle: Bus, bike: Bike, other: Route,
 };
 const PLACE_ICONS: Record<PlaceKind, LucideIcon> = {
   city: Building2, village: House,

@@ -61,6 +61,7 @@ const TRANSFER_CATEGORY: Record<string, Category> = {
   bus: "transport",
   transit: "transport",
   shuttle: "transport",
+  bike: "transport",
   other: "other",
 };
 

@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 
 export type TransferKind =
   | "flight" | "drive" | "ferry" | "car_pickup" | "car_return" | "train"
-  | "taxi" | "bus" | "transit" | "shuttle" | "other";
+  | "taxi" | "bus" | "transit" | "shuttle" | "bike" | "other";
 
 export const KIND_LABELS: Record<TransferKind, string> = {
   flight: "Flug",
@@ -16,6 +16,7 @@ export const KIND_LABELS: Record<TransferKind, string> = {
   bus: "Bus",
   transit: "S-Bahn / Tram / Metro",
   shuttle: "Shuttle",
+  bike: "Fahrrad",
   other: "Sonstiges",
 };
 export const KINDS = Object.keys(KIND_LABELS) as TransferKind[];
