@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { AddMenu } from "@/components/add-menu";
+import { BookedToggle, StatusBadge } from "@/components/booked-toggle";
 import { Card } from "@/components/ui/card";
+import { placeStatus, STATUS_CARD, transferStatus, type BookStatus } from "@/lib/booking";
 import {
   PLACE_KIND_LABELS, TIMEZONES, type Destination, type PlaceKind,
 } from "@/lib/destinations";
@@ -90,6 +92,7 @@ export function Timeline({
             icon={iconFor(node)}
             small={node.type === "free"}
             extra={node.type === "place" && node.destination.lodging_name ? BedDouble : null}
+            status={node.type === "place" ? placeStatus(node.destination) : node.type === "transfer" ? transferStatus(node.transfer) : "none"}
           >
             {node.type === "place" && (
               <PlaceCard
@@ -163,10 +166,12 @@ function Row({
   icon: Icon,
   small,
   extra: Extra,
+  status = "none",
   children,
 }: {
   icon: LucideIcon;
   small: boolean;
+  status?: BookStatus;
   extra: LucideIcon | null;
   children: React.ReactNode;
 }) {
@@ -180,7 +185,7 @@ function Row({
             className={
               small
                 ? "flex size-7 items-center justify-center rounded-full border border-neutral-300 bg-background text-neutral-500 dark:border-neutral-700"
-                : "flex size-9 items-center justify-center rounded-full bg-red-700 text-white"
+                : `flex size-9 items-center justify-center rounded-full text-white ${status === "booked" ? "bg-green-700" : status === "open" ? "bg-amber-600" : "bg-red-700"}`
             }
           >
             <Icon className={small ? "size-3.5" : "size-5"} />
@@ -233,7 +238,7 @@ function PlaceCard({
   ].filter(Boolean).join(", ");
 
   return (
-    <Card className="relative flex items-start gap-3 transition-colors hover:border-red-700">
+    <Card className={`relative flex items-start gap-3 transition-colors hover:border-red-700 ${STATUS_CARD[placeStatus(d)]}`}>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-neutral-500">{PLACE_KIND_LABELS[d.kind] ?? "Ort"}</p>
         {/* Der Link deckt über ::after die ganze Karte ab; die Pfeiltasten liegen darüber. */}
@@ -262,6 +267,12 @@ function PlaceCard({
           )}
           {tz && <p>{tz}</p>}
         </div>
+        {placeStatus(d) !== "none" && (
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <StatusBadge status={placeStatus(d)} />
+            <BookedToggle tripId={tripId} table="destinations" id={d.id} booked={d.booked} label={d.name} />
+          </div>
+        )}
       </div>
       <MoveButtons tripId={tripId} nodeKey={nodeKey} first={first} last={last} />
     </Card>
@@ -309,7 +320,7 @@ function TransferCard({
     <>
       <div className="relative">
       <Link href={`/trips/${tripId}/transfers/${t.id}`} className="block">
-        <Card className="pr-28 transition-colors hover:border-red-700">
+        <Card className={`pr-28 transition-colors hover:border-red-700 ${STATUS_CARD[transferStatus(t)]} ${transferStatus(t) !== "none" ? "pb-14" : ""}`}>
           <p className="text-xs text-neutral-500">Verschiebung {number}</p>
           <h3 className="font-semibold">
             {KIND_LABELS[t.kind]}
@@ -335,6 +346,12 @@ function TransferCard({
       <div className="absolute right-3 top-3">
         <MoveButtons tripId={tripId} nodeKey={nodeKey} first={first} last={last} />
       </div>
+      {transferStatus(t) !== "none" && (
+        <div className="absolute bottom-2 right-3 z-10 flex items-center gap-3 rounded-lg bg-inherit">
+          <StatusBadge status={transferStatus(t)} />
+          <BookedToggle tripId={tripId} table="transfers" id={t.id} booked={t.booked} label={route || KIND_LABELS[t.kind]} />
+        </div>
+      )}
       </div>
       {mapsUrl && (
         <a

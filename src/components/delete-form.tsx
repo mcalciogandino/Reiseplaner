@@ -6,10 +6,12 @@ export function DeleteForm({
   action,
   label,
   confirmText,
+  tone = "danger",
 }: {
   action: () => Promise<void>;
   label: string;
   confirmText: string;
+  tone?: "danger" | "neutral";
 }) {
   return (
     <form
@@ -18,7 +20,7 @@ export function DeleteForm({
         if (!window.confirm(confirmText)) e.preventDefault();
       }}
     >
-      <Button type="submit" variant="outline" className="border-red-700 text-red-700">
+      <Button type="submit" variant="outline" className={tone === "danger" ? "border-red-700 text-red-700" : undefined}>
         {label}
       </Button>
     </form>

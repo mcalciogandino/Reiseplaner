@@ -59,6 +59,7 @@ async function Content({ params }: { params: Params }) {
     carrier: t.carrier ?? "",
     flight_number: t.flight_number ?? "",
     booking_ref: t.booking_ref ?? "",
+    booked: t.booked ? "on" : "",
     from_lat: t.from_lat?.toString() ?? "",
     from_lng: t.from_lng?.toString() ?? "",
     to_lat: t.to_lat?.toString() ?? "",

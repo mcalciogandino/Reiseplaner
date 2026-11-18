@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
+import { StatusBadge } from "@/components/booked-toggle";
+import { bookingProgress, placeStatus, transferStatus, vehicleStatus } from "@/lib/booking";
 import { Card } from "@/components/ui/card";
 import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Timeline } from "@/components/timeline";
 import { ReviewCard } from "./review-card";
+import { VariantBar } from "./variants/variant-bar";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { routeWarnings } from "@/lib/route-warnings";
 import { createClient } from "@/lib/supabase/server";
@@ -74,18 +77,28 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
   for (const t of allLegs) {
     if (t.is_option && t.option_group) options.set(t.option_group, [...(options.get(t.option_group) ?? []), t]);
   }
+  const { data: cars } = await supabase.from("vehicles").select("booked").eq("trip_id", tripId);
+  const progress = bookingProgress([
+    ...destinations.map(placeStatus),
+    ...transfers.map(transferStatus),
+    ...(cars ?? []).map((c) => vehicleStatus({ booked: Boolean(c.booked) })),
+  ]);
   const loadError = dbErrorMessage(stopsError, legsError);
   const nodes = buildTimeline(destinations, transfers, pinned);
   const warnings = routeWarnings(trip, destinations);
 
   return (
     <>
+      <VariantBar tripId={tripId} />
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{trip.name}</h1>
           <p className="mt-1 text-neutral-600 dark:text-neutral-400">{formatRoute(trip)}</p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          <Link href={`/trips/${tripId}/chat`} className={`${linkButton} border-red-700 text-red-700`}>
+            Mit KI planen
+          </Link>
           <Link href={`/trips/${tripId}/activities`} className={linkButton}>
             Bucket List
           </Link>
@@ -126,6 +139,27 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           </div>
         </dl>
       </Card>
+
+      {progress.total > 0 && (
+        <Card className="flex flex-col gap-2">
+          <p className="text-sm font-semibold">
+            Gebucht: {progress.booked} von {progress.total} buchbaren Einträgen
+          </p>
+          <div
+            role="progressbar"
+            aria-label="Buchungsfortschritt"
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.booked}
+            className="h-2.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+          >
+            <div className="h-full bg-green-600" style={{ width: `${Math.round((progress.booked / progress.total) * 100)}%` }} />
+          </div>
+          <p className="flex flex-wrap items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+            <StatusBadge status="booked" /> grün hinterlegt <StatusBadge status="open" /> orange gestrichelt
+          </p>
+        </Card>
+      )}
 
       <section className="flex flex-col gap-3" aria-labelledby="zeitleiste">
         <div className="flex flex-wrap items-center justify-between gap-3">

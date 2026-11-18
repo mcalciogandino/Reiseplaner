@@ -34,6 +34,7 @@ async function TripList() {
   const { data: trips } = await supabase
     .from("trips")
     .select(TRIP_COLUMNS)
+    .is("variant_of", null)
     .order("start_date", { ascending: true })
     .returns<Trip[]>();
 

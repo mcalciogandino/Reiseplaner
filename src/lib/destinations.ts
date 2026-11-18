@@ -81,10 +81,11 @@ export type Destination = {
   addr_city: string | null;
   addr_region: string | null;
   addr_country: string | null;
+  booked: boolean;
 };
 
 export const DESTINATION_COLUMNS =
-  "id, name, kind, description, arrival_date, departure_date, sort_order, timezone, lodging_name, lodging_address, lodging_checkin, lodging_checkout, lodging_booking_ref, lodging_price, lodging_currency, notes, lat, lng, place_label, addr_street, addr_house_number, addr_postcode, addr_city, addr_region, addr_country";
+  "id, name, kind, description, arrival_date, departure_date, sort_order, timezone, lodging_name, lodging_address, lodging_checkin, lodging_checkout, lodging_booking_ref, lodging_price, lodging_currency, notes, lat, lng, place_label, addr_street, addr_house_number, addr_postcode, addr_city, addr_region, addr_country, booked";
 
 export const TIMEZONES = [
   { value: "America/Vancouver", label: "Pacific (Vancouver, Whistler)" },

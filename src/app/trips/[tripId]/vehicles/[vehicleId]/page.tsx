@@ -57,6 +57,7 @@ async function Content({ params }: { params: Params }) {
     return_local: v.return_at && v.return_tz ? utcToLocalInput(v.return_at, v.return_tz) : "",
     return_tz: v.return_tz ?? "",
     booking_ref: v.booking_ref ?? "",
+    booked: v.booked ? "on" : "",
     price: v.price === null ? "" : String(v.price),
     currency: v.currency ?? "",
     notes: v.notes ?? "",

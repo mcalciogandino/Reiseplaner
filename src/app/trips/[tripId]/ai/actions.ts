@@ -3,17 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { searchPlaces } from "@/app/geocode/actions";
-import { buildPlan, type GeoHit, type KnownPlace } from "@/lib/ai/build-plan";
+import { buildPlan } from "@/lib/ai/build-plan";
+import { geocodeFirst } from "@/lib/ai/geocode";
+import { loadTripContext } from "@/lib/ai/trip-context";
 import { proposeFromText, researchFromText } from "@/lib/ai/claude";
 import { planSchema, type Plan, type PlanEndpoint } from "@/lib/ai/plan";
-import { tripContext } from "@/lib/ai/prompt";
 import { storeRoute } from "@/lib/route-store";
 import { loadSettings } from "@/lib/settings";
-import { VEHICLE_COLUMNS, vehicleLine, type Vehicle } from "@/lib/vehicles";
 import { createClient } from "@/lib/supabase/server";
-import { KIND_LABELS, localToUtcIso, type TransferKind } from "@/lib/transfers";
-import { TRIP_COLUMNS, type Trip } from "@/lib/trips";
+import { localToUtcIso } from "@/lib/transfers";
 
 export type AiState = { text: string; message?: string; plan?: Plan } | null;
 
@@ -25,14 +23,6 @@ function withSources(notes: string | null, sources: string[]): string | null {
   if (!sources.length) return notes;
   const block = `Quellen:\n${sources.join("\n")}`;
   return (notes ? `${notes}\n\n${block}` : block).slice(0, 2000);
-}
-
-async function geocode(query: string): Promise<GeoHit | null> {
-  const res = await searchPlaces(query);
-  const hit = res.ok ? res.hits[0] : undefined;
-  return hit
-    ? { lat: hit.lat, lng: hit.lng, timezone: hit.timezone, label: hit.label, address: hit.address }
-    : null;
 }
 
 /** Schritt 1: Text lesen lassen und einen prüfbaren Vorschlag erstellen (nichts wird gespeichert). */
@@ -47,38 +37,9 @@ export async function proposeEntries(
   if (text.length > MAX_TEXT) return { text, message: `Der Text ist zu lang (höchstens ${MAX_TEXT} Zeichen).` };
 
   const supabase = await createClient();
-  const { data: trip } = await supabase.from("trips").select(TRIP_COLUMNS).eq("id", tripId).maybeSingle<Trip>();
-  if (!trip) return { text, message: "Reise nicht gefunden." };
-
-  const [{ data: stops }, { data: legs }, { data: cars }] = await Promise.all([
-    supabase
-      .from("destinations")
-      .select("id, name, timezone, lat, lng, arrival_date, departure_date")
-      .eq("trip_id", tripId)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("transfers")
-      .select("kind, from_destination_id, to_destination_id, from_place, to_place, depart_at")
-      .eq("trip_id", tripId)
-      .eq("is_option", false),
-    supabase.from("vehicles").select(VEHICLE_COLUMNS).eq("trip_id", tripId).returns<Vehicle[]>(),
-  ]);
-  const places = (stops ?? []) as (KnownPlace & { arrival_date: string | null; departure_date: string | null })[];
-  const name = new Map(places.map((p) => [p.id, p.name]));
-
-  const context = tripContext({
-    vehicles: (cars ?? []).map(vehicleLine),
-    name: trip.name,
-    start_date: trip.start_date,
-    end_date: trip.end_date,
-    places,
-    transfers: (legs ?? []).map((t) => ({
-      kind: KIND_LABELS[t.kind as TransferKind] ?? t.kind,
-      from: (t.from_destination_id && name.get(t.from_destination_id)) || t.from_place || "",
-      to: (t.to_destination_id && name.get(t.to_destination_id)) || t.to_place || "",
-      depart: t.depart_at,
-    })),
-  });
+  const loaded = await loadTripContext(supabase, tripId);
+  if (!loaded) return { text, message: "Reise nicht gefunden." };
+  const { trip, places, context } = loaded;
 
   const position = readPosition(formData);
   const hint =
@@ -101,7 +62,7 @@ export async function proposeEntries(
     : await proposeFromText(text, fullContext, creds);
   if (!result.ok) return { text, message: result.message };
 
-  const plan = await buildPlan(result.proposal, places, trip, geocode);
+  const plan = await buildPlan(result.proposal, places, trip, geocodeFirst);
   if (search) plan.mode = "search";
   if (plan.places.length === 0 && plan.transfers.length === 0) {
     return {
@@ -149,6 +110,14 @@ export async function applyPlan(
   _prev: AiState,
   formData: FormData,
 ): Promise<AiState> {
+  const failed = await savePlan(tripId, formData);
+  if (failed) return failed;
+  revalidatePath("/", "layout");
+  redirect(`/trips/${tripId}`);
+}
+
+/** Speichert die gewählten Einträge; liefert bei Fehlern den Zustand mit Meldung, bei Erfolg null. */
+export async function savePlan(tripId: string, formData: FormData): Promise<AiState> {
   const text = String(formData.get("text") ?? "");
   if (!uuid.safeParse(tripId).success) return { text, message: "Ungültige Reise." };
 
@@ -351,7 +320,5 @@ export async function applyPlan(
   for (const r of routable) {
     if (r.row.kind === "drive") await storeRoute(supabase, tripId, r.id, r.row);
   }
-
-  revalidatePath("/", "layout");
-  redirect(`/trips/${tripId}`);
+  return null;
 }

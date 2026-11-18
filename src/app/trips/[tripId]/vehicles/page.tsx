@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { formatLocal } from "@/lib/transfers";
 import { VEHICLE_COLUMNS, VEHICLE_LABELS, type Vehicle } from "@/lib/vehicles";
+import { BookedToggle, StatusBadge } from "@/components/booked-toggle";
+import { STATUS_CARD, vehicleStatus } from "@/lib/booking";
 import { deleteVehicle } from "./actions";
 
 type Params = Promise<{ tripId: string }>;
@@ -62,7 +64,7 @@ async function Content({ params }: { params: Params }) {
       <ul className="flex flex-col gap-3">
         {(data ?? []).map((v) => (
           <li key={v.id}>
-            <Card className="flex items-start gap-3">
+            <Card className={`flex items-start gap-3 ${STATUS_CARD[vehicleStatus(v)]}`}>
               <div className="min-w-0 flex-1 text-sm">
                 <p className="font-semibold">
                   {VEHICLE_LABELS[v.kind]}
@@ -82,6 +84,10 @@ async function Content({ params }: { params: Params }) {
                     .join(" · ")}
                 </p>
                 {v.notes && <p className="text-neutral-600 dark:text-neutral-400">{v.notes}</p>}
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  <StatusBadge status={vehicleStatus(v)} />
+                  <BookedToggle tripId={tripId} table="vehicles" id={v.id} booked={v.booked} label={VEHICLE_LABELS[v.kind]} />
+                </div>
               </div>
               <Link
                 href={`/trips/${tripId}/vehicles/${v.id}`}
