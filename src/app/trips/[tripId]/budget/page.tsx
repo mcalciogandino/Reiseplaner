@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { VariantBar } from "../variants/variant-bar";
 import { activityLines, type Status } from "@/lib/activities";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -84,6 +85,7 @@ async function Content({ params }: { params: Params }) {
 
   return (
     <>
+      <VariantBar tripId={tripId} suffix="/budget" />
       <Link href={`/trips/${tripId}`} className="inline-flex min-h-11 items-center text-sm underline">
         ← Zurück zur Reise
       </Link>

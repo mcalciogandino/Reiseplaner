@@ -169,7 +169,9 @@ function Proposal({ tripId, message, placeNames }: { tripId: string; message: Ch
         title="Vorschlag zum Einfügen"
         submitLabel={`Ausgewählte einfügen`}
         extra={
-          stored.plan.places.length > 0 ? (
+          <>
+          <ExtrasPick extras={stored.extras} />
+          {stored.plan.places.length > 0 ? (
             <div className="flex flex-col gap-1">
               <label htmlFor={`pos-${message.id}`} className="text-sm font-medium">
                 Einfügen nach
@@ -189,7 +191,8 @@ function Proposal({ tripId, message, placeNames }: { tripId: string; message: Ch
                 ))}
               </select>
             </div>
-          ) : null
+          ) : null}
+          </>
         }
         onDismiss={undefined}
       />
@@ -204,5 +207,53 @@ function Proposal({ tripId, message, placeNames }: { tripId: string; message: Ch
         </p>
       )}
     </div>
+  );
+}
+
+const fmtMoney = (n: number | null | undefined, c: string | null | undefined) => (n == null ? "" : ` · ${n} ${c ?? ""}`.trimEnd());
+
+function ExtrasPick({ extras }: { extras: StoredProposal["extras"] }) {
+  if (!extras) return null;
+  const group = (title: string, name: string, items: { key: string; text: string; sub?: string }[]) =>
+    items.length ? (
+      <section aria-label={title} className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">
+          {title} ({items.length})
+        </h3>
+        <ul className="flex flex-col gap-2">
+          {items.map((it, i) => (
+            <li key={it.key} className="flex gap-3 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+              <input type="checkbox" name={name} value={i} defaultChecked aria-label="Übernehmen" className="mt-1 size-5 shrink-0 accent-red-700" />
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="font-medium">{it.text}</p>
+                {it.sub && <p className="text-neutral-600 dark:text-neutral-400">{it.sub}</p>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ) : null;
+  return (
+    <>
+      {group(
+        "Checkliste",
+        "x_checklist",
+        extras.checklist.map((c, i) => ({
+          key: `c${i}`,
+          text: c.title,
+          sub: `${c.list === "packing" ? "Packliste" : "Vorbereitung"}${c.due_date ? ` · bis ${c.due_date.slice(8, 10)}.${c.due_date.slice(5, 7)}.${c.due_date.slice(0, 4)}` : ""}`,
+        })),
+      )}
+      {group(
+        "Bucket List",
+        "x_bucket",
+        extras.bucket.map((b, i) => ({ key: `b${i}`, text: b.title, sub: `${b.description ?? ""}${fmtMoney(b.estimated_cost, b.currency)}`.replace(/^ · /, "") })),
+      )}
+      {group(
+        "Budget",
+        "x_budget",
+        extras.budget.map((b, i) => ({ key: `u${i}`, text: b.description, sub: `${b.category}${fmtMoney(b.planned_amount, b.currency)}` })),
+      )}
+    </>
   );
 }

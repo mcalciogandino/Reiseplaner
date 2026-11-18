@@ -37,7 +37,7 @@ describe("chatReply", () => {
 
   it("liefert nur Text, wenn die KI beraten hat", async () => {
     const r = await chatReply([{ role: "user", content: "Wie lange in Banff?" }], "ctx", creds, {}, fake({ message: "Drei Nächte." }));
-    expect(r).toEqual({ ok: true, message: "Drei Nächte.", proposal: null });
+    expect(r).toEqual({ ok: true, message: "Drei Nächte.", proposal: null, extras: null });
   });
 
   it("liefert zusätzlich einen geprüften Vorschlag", async () => {
@@ -78,6 +78,27 @@ describe("chatReply", () => {
     expect(msgs[2].content).toContain("STAND");
     expect(msgs[2].content).toContain("Zweite");
     expect(seen.tool_choice).toEqual({ type: "tool", name: CHAT_TOOL_NAME });
+  });
+
+  it("liefert Checkliste, Bucket List und Budget als Extras", async () => {
+    const input = {
+      message: "Das fehlt noch.",
+      extras: {
+        checklist: [{ title: "eTA beantragen", due_date: "2027-05-01" }],
+        bucket: [{ title: "Lake Louise", estimated_cost: 20, currency: "cad" }],
+        budget: [{ category: "car", description: "Mietwagen", planned_amount: 2500, currency: "cad" }],
+      },
+    };
+    const r = await chatReply([{ role: "user", content: "x" }], "c", creds, {}, fake(input));
+    expect(r.ok && r.extras?.checklist[0]).toMatchObject({ list: "prep", title: "eTA beantragen" });
+    expect(r.ok && r.extras?.bucket[0]).toMatchObject({ priority: "medium", currency: "CAD" });
+    expect(r.ok && r.extras?.budget[0].currency).toBe("CAD");
+  });
+
+  it("ungültige Extras (unbekannte Kategorie) werden verworfen, der Text bleibt", async () => {
+    const r = await chatReply([{ role: "user", content: "x" }], "c", creds, {}, fake({ message: "ok", extras: { budget: [{ category: "ufo", description: "x", planned_amount: 1, currency: "CAD" }] } }));
+    expect(r.ok && r.extras).toBeNull();
+    expect(r.ok && r.message).toMatch(/unvollständig/);
   });
 
   it("verlangt eine Nachricht der Person am Ende", async () => {
