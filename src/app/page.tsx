@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatRoute, TRIP_COLUMNS, tripDays, type Trip } from "@/lib/trips";
+import { VersionStamp } from "@/components/version-stamp";
 import { signOut } from "./login/actions";
 
 export default function Home() {
@@ -85,6 +86,7 @@ async function TripList() {
           </Button>
         </form>
       </div>
+      <VersionStamp />
     </>
   );
 }
