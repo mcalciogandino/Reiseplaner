@@ -37,7 +37,7 @@ describe("chatReply", () => {
 
   it("liefert nur Text, wenn die KI beraten hat", async () => {
     const r = await chatReply([{ role: "user", content: "Wie lange in Banff?" }], "ctx", creds, {}, fake({ message: "Drei Nächte." }));
-    expect(r).toEqual({ ok: true, message: "Drei Nächte.", proposal: null, extras: null });
+    expect(r).toEqual({ ok: true, message: "Drei Nächte.", proposal: null, extras: null, changes: [] });
   });
 
   it("liefert zusätzlich einen geprüften Vorschlag", async () => {

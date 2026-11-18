@@ -128,7 +128,7 @@ type TripContextInput = {
   start_date: string;
   end_date: string;
   places: (KnownPlace & { arrival_date: string | null; departure_date: string | null })[];
-  transfers: { kind: string; from: string; to: string; depart: string | null }[];
+  transfers: { id?: string; kind: string; from: string; to: string; depart: string | null }[];
   /** Zeilen der bestehenden Mietfahrzeuge (siehe vehicleLine). */
   vehicles?: string[];
 };
@@ -141,7 +141,7 @@ export function tripContext(t: TripContextInput): string {
         .join("\n")
     : "(noch keine)";
   const transfers = t.transfers.length
-    ? t.transfers.map((x) => `- ${x.kind}: ${x.from || "?"} → ${x.to || "?"}${x.depart ? `, Abfahrt ${x.depart}` : ""}`).join("\n")
+    ? t.transfers.map((x) => `- ${x.kind}${x.id ? ` (ID ${x.id})` : ""}: ${x.from || "?"} → ${x.to || "?"}${x.depart ? `, Abfahrt ${x.depart}` : ""}`).join("\n")
     : "(noch keine)";
   return `Reise: ${t.name}, ${t.start_date} bis ${t.end_date}.\nBestehende Orte:\n${places}\nBestehende Verschiebungen:\n${transfers}\nMietfahrzeuge:\n${t.vehicles?.length ? t.vehicles.join("\n") : "(keine)"}`;
 }

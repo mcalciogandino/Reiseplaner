@@ -151,3 +151,7 @@ Migration `20261111330000_booked_variants_chat.sql` (auch in `catch-up.sql`; auf
 ## Zeitleiste ordnen
 - «Logisch sortieren» (Zeitleiste): Orte nach Datum, dazwischen die Verschiebungen (Verschiebung → Ort → Verschiebung); Logik in `src/lib/timeline-order.ts`, gespeichert in `trips.timeline_order`. Ohne Datum gilt die Routenreihenfolge.
 - Nach jedem Einfügen durch die KI (Erfassung und Chat) ordnet `tidyAfterInsert` die neuen Einträge an ihre logische Stelle; eine von Hand festgelegte Reihenfolge bleibt dabei erhalten.
+
+## Plan-Check und Änderungen per Chat
+- **Plan-Check** (Reiseseite, ohne KI, `src/lib/plan-check.ts`): findet doppelte Orte, Überschneidungen, Orte ausserhalb des Zeitraums, fehlende Verschiebungen, Starts, die nicht zur Route passen, widersprüchliche Ankunftsdaten und Verschiebungen ohne Start/Ziel. Korrekturen per Knopf (`check-actions.ts`): Orte zusammenführen (Angaben und Verweise wandern zum behaltenen Ort), Autofahrt ergänzen, Start setzen, Ankunftsdatum angleichen. Unklares führt mit «Im Chat klären» in den Chat mit vorbereiteter Frage.
+- **Chat kann ändern und löschen** (`src/lib/ai/changes.ts`): Der Überblick enthält jetzt die IDs von Verschiebungen. Die KI liefert `changes` (Ort/Verschiebung ändern oder löschen); die App prüft sie (unbekannte IDs, Daten, Zeitzonen, Ankunft vor Abfahrt), zeigt Vorher-Nachher mit Auswahl und wendet sie erst nach Bestätigung an, vor dem Einfügen neuer Einträge. Löschen einer Verschiebung nimmt ihre gespeicherten Alternativen mit; ändert sich Start oder Ziel, wird die Route neu berechnet.
