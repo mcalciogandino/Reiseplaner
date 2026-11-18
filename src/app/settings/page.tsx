@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { DEFAULT_MODEL, maskKey, resolveSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
+import { PasswordForm } from "./password-form";
 import { SettingsForm } from "./settings-form";
 
 export default function SettingsPage() {
@@ -51,6 +52,7 @@ async function Content() {
         model={typeof stored?.ai_model === "string" && stored.ai_model ? stored.ai_model : DEFAULT_MODEL}
         fromEnv={fromEnv}
       />
+      <PasswordForm />
     </>
   );
 }

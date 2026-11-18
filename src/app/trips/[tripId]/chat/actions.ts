@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { buildPlan } from "@/lib/ai/build-plan";
-import { chatReply, type ChatTurn } from "@/lib/ai/chat";
+import { chatReply, extrasSchema, hasExtras, type ChatTurn, type Extras } from "@/lib/ai/chat";
 import { geocodeFirst } from "@/lib/ai/geocode";
 import { planSchema, type Plan } from "@/lib/ai/plan";
 import { loadTripContext } from "@/lib/ai/trip-context";
@@ -18,11 +18,12 @@ const MAX_TEXT = 4000;
 const HISTORY = 30;
 
 /** Was in `chat_messages.proposal` steht: der geprüfte Plan und sein Stand. */
-export type StoredProposal = { plan: Plan; applied?: boolean; dismissed?: boolean };
+export type StoredProposal = { plan: Plan; extras?: Extras | null; applied?: boolean; dismissed?: boolean };
 
 function proposalNote(p: StoredProposal | null): string {
   if (!p) return "";
-  const n = `${p.plan.places.length} Orte, ${p.plan.transfers.length} Verschiebungen, ${p.plan.vehicles.length} Fahrzeuge`;
+  const x = p.extras;
+  const n = `${p.plan.places.length} Orte, ${p.plan.transfers.length} Verschiebungen, ${p.plan.vehicles.length} Fahrzeuge${x ? `, ${x.checklist.length} Aufgaben, ${x.bucket.length} Ideen, ${x.budget.length} Budgetposten` : ""}`;
   return `\n\n[Vorschlag mit ${n} — ${p.applied ? "von der Person eingefügt" : p.dismissed ? "verworfen" : "noch nicht eingefügt"}]`;
 }
 
@@ -65,9 +66,12 @@ export async function sendChat(tripId: string, _prev: ChatState, formData: FormD
 
   let stored: StoredProposal | null = null;
   let content = result.message;
-  if (result.proposal) {
-    const plan = await buildPlan(result.proposal, loaded.places, loaded.trip, geocodeFirst);
-    if (plan.places.length || plan.transfers.length || plan.vehicles.length) stored = { plan };
+  const extras = result.extras;
+  if (result.proposal || extras) {
+    const plan = result.proposal
+      ? await buildPlan(result.proposal, loaded.places, loaded.trip, geocodeFirst)
+      : await buildPlan({ summary: "", places: [], transfers: [], vehicles: [], questions: [] }, loaded.places, loaded.trip, geocodeFirst);
+    if (plan.places.length || plan.transfers.length || plan.vehicles.length || hasExtras(extras)) stored = { plan, extras };
     else content += "\n\n(Aus dem Vorschlag konnte nichts Eintragbares gebaut werden.)";
   }
   const { error } = await supabase
@@ -106,9 +110,55 @@ export async function applyChatProposal(
   if (!stored) return { message: "Der Vorschlag ist nicht mehr gültig." };
   if (stored.applied) return { message: "Dieser Vorschlag wurde schon eingefügt." };
 
-  formData.set("plan", JSON.stringify(stored.plan));
-  const failed = await savePlan(tripId, formData);
-  if (failed) return { message: failed.message ?? "Das Speichern ist fehlgeschlagen." };
+  const picks = (k: string) => new Set(formData.getAll(k).map(String));
+  const planPicked =
+    formData.getAll("place").length + formData.getAll("transfer").length + formData.getAll("vehicle").length > 0 ||
+    [...formData.entries()].some(([k, v]) => k.startsWith("grp_") && v !== "");
+  const extras = extrasSchema.safeParse(stored.extras ?? {});
+  const x = extras.success ? extras.data : null;
+  const chosenChecklist = x ? x.checklist.filter((_, i) => picks("x_checklist").has(String(i))) : [];
+  const chosenBucket = x ? x.bucket.filter((_, i) => picks("x_bucket").has(String(i))) : [];
+  const chosenBudget = x ? x.budget.filter((_, i) => picks("x_budget").has(String(i))) : [];
+  const extrasPicked = chosenChecklist.length + chosenBucket.length + chosenBudget.length > 0;
+  if (!planPicked && !extrasPicked) return { message: "Es ist nichts ausgewählt." };
+
+  if (planPicked) {
+    formData.set("plan", JSON.stringify(stored.plan));
+    const failed = await savePlan(tripId, formData);
+    if (failed) return { message: failed.message ?? "Das Speichern ist fehlgeschlagen." };
+  }
+  if (extrasPicked) {
+    const inserts = [
+      chosenChecklist.length
+        ? supabase.from("checklist_items").insert(
+            chosenChecklist.map((c) => ({ trip_id: tripId, list: c.list, title: c.title, due_date: c.due_date ?? null, source: "ai", reviewed: true })),
+          )
+        : null,
+      chosenBucket.length
+        ? supabase.from("activities").insert(
+            chosenBucket.map((b) => ({
+              trip_id: tripId,
+              title: b.title,
+              description: b.description ?? null,
+              priority: b.priority,
+              estimated_cost: b.estimated_cost ?? null,
+              currency: b.currency ?? "CAD",
+              source: "ai",
+              reviewed: true,
+            })),
+          )
+        : null,
+      chosenBudget.length
+        ? supabase.from("budget_entries").insert(chosenBudget.map((b) => ({ trip_id: tripId, ...b, source: "ai", reviewed: true })))
+        : null,
+    ];
+    const results = await Promise.all(inserts);
+    const bad = results.find((r) => r?.error);
+    if (bad?.error) {
+      console.error("applyChatProposal extras failed:", bad.error.code);
+      return { message: "Ein Teil konnte nicht gespeichert werden. Prüfe die Seiten und versuche es noch einmal." };
+    }
+  }
 
   await supabase.from("chat_messages").update({ proposal: { ...stored, applied: true } }).eq("id", messageId).eq("trip_id", tripId);
   revalidatePath("/", "layout");

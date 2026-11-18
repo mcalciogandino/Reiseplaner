@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { VariantBar } from "../variants/variant-bar";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
@@ -37,6 +38,7 @@ async function Content({ params }: { params: Params }) {
 
   return (
     <>
+      <VariantBar tripId={tripId} suffix="/checklist" />
       <Link href={`/trips/${tripId}`} className="inline-flex min-h-11 items-center text-sm underline">
         ← Zurück zur Reise
       </Link>
