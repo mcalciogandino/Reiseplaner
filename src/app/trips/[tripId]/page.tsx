@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { DbErrorNotice, dbErrorMessage } from "@/components/db-error";
 import { Timeline } from "@/components/timeline";
 import { ReviewCard } from "./review-card";
+import { VariantBar } from "./variants/variant-bar";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
 import { routeWarnings } from "@/lib/route-warnings";
 import { createClient } from "@/lib/supabase/server";
@@ -88,6 +89,7 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
 
   return (
     <>
+      <VariantBar tripId={tripId} />
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{trip.name}</h1>
