@@ -9,6 +9,13 @@ describe("Buchungsstatus", () => {
     expect(placeStatus({ ...place, lodging_name: "Hotel" })).toBe("open");
     expect(placeStatus({ ...place, lodging_name: "Hotel", booked: true })).toBe("booked");
   });
+  it("Campingplätze und Hotels sind auch ohne Unterkunftsangaben buchbar, Aussichtspunkte nicht", () => {
+    expect(placeStatus({ ...place, kind: "camping" })).toBe("open");
+    expect(placeStatus({ ...place, kind: "hotel", booked: true })).toBe("booked");
+    expect(placeStatus({ ...place, kind: "activity" })).toBe("open");
+    expect(placeStatus({ ...place, kind: "viewpoint" })).toBe("none");
+    expect(placeStatus({ ...place, kind: "viewpoint", booked: true })).toBe("booked");
+  });
   it("Verschiebungen: Flug buchbar, eigene Fahrt nicht", () => {
     expect(transferStatus({ booked: false, kind: "flight", booking_ref: null })).toBe("open");
     expect(transferStatus({ booked: false, kind: "drive", booking_ref: null })).toBe("none");
