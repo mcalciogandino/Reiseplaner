@@ -171,3 +171,8 @@ create policy owner_all on chat_messages for all to authenticated
   using (is_trip_owner(trip_id)) with check (is_trip_owner(trip_id));
 revoke all on chat_messages from anon;
 grant select, insert, update, delete on chat_messages to authenticated;
+
+-- Verkehrsmittel «Fahrrad».
+alter table transfers drop constraint if exists transfers_kind_check;
+alter table transfers add constraint transfers_kind_check check (kind in
+  ('flight','drive','ferry','car_pickup','car_return','train','taxi','bus','transit','shuttle','bike','other'));

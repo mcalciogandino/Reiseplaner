@@ -11,7 +11,7 @@ export function placeStatus(d: PlaceLike): BookStatus {
   return d.lodging_name || d.lodging_price !== null || d.lodging_booking_ref ? "open" : "none";
 }
 
-const NO_BOOKING: TransferKind[] = ["drive", "car_pickup", "car_return", "transit"];
+const NO_BOOKING: TransferKind[] = ["drive", "car_pickup", "car_return", "transit", "bike"];
 
 /** Verschiebungen sind buchbar, ausser eigene Fahrt, Mietwagen-Übergabe und öffentlicher Nahverkehr. */
 export function transferStatus(t: TransferLike): BookStatus {

@@ -27,6 +27,7 @@ const PROFILES: Partial<Record<TransferKind, { detour: number; kmh: number; extr
   bus: { detour: 1.3, kmh: 35, extraMin: 10 },
   transit: { detour: 1.25, kmh: 35, extraMin: 10 },
   shuttle: { detour: 1.3, kmh: 45, extraMin: 10 },
+  bike: { detour: 1.25, kmh: 16, extraMin: 0 },
 };
 
 export type Estimate = { distanceKm: number; durationMin: number };
