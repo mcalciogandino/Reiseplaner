@@ -146,7 +146,7 @@ export function checkPlan(trip: { start_date: string; end_date: string }, places
     if (!prev || !from || prev.id === from.id) continue;
     // Nur auffällig, wenn der Startort weit weg in der Route steht (kein Nachbar, kein Rückweg zum Nachbarn).
     const gap = Math.abs(order.findIndex((p) => p.id === from.id) - order.findIndex((p) => p.id === to.id));
-    if (gap > 1) {
+    if (gap > 2) {
       out.push({
         id: `from-${t.id}`,
         severity: "warning",
