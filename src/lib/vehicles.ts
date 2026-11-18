@@ -21,10 +21,11 @@ export type Vehicle = {
   return_lng: number | null;
   return_label: string | null;
   return_address: Record<string, string> | null;
+  booked: boolean;
 };
 
 export const VEHICLE_COLUMNS =
-  "id, kind, provider, vehicle_name, pickup_place, pickup_at, pickup_tz, return_place, return_at, return_tz, booking_ref, price, currency, notes, pickup_lat, pickup_lng, pickup_label, pickup_address, return_lat, return_lng, return_label, return_address";
+  "id, kind, provider, vehicle_name, pickup_place, pickup_at, pickup_tz, return_place, return_at, return_tz, booking_ref, price, currency, notes, pickup_lat, pickup_lng, pickup_label, pickup_address, return_lat, return_lng, return_label, return_address, booked";
 
 export const VEHICLE_LABELS: Record<Vehicle["kind"], string> = { car: "Mietwagen", camper: "Camper", other: "Fahrzeug" };
 

@@ -18,7 +18,7 @@ export type TransferFormState = {
 const FIELDS = [
   "kind", "from_destination_id", "to_destination_id", "from_place", "to_place",
   "depart_local", "depart_tz", "arrive_local", "arrive_tz",
-  "duration_min", "distance_km", "carrier", "flight_number", "booking_ref", "price", "currency", "notes",
+  "duration_min", "distance_km", "carrier", "flight_number", "booking_ref", "booked", "price", "currency", "notes",
   "from_lat", "from_lng", "to_lat", "to_lng",
   ...(["from", "to"] as const).flatMap((side) => NEW_PLACE_KEYS.map((k) => `${side}_new_${k}`)),
 ];
@@ -60,6 +60,7 @@ const schema = z
     carrier: text(100),
     flight_number: text(30),
     booking_ref: text(100),
+    booked: z.string().transform((v) => v === "on"),
     price: z
       .string()
       .trim()
@@ -113,6 +114,7 @@ const schema = z
     carrier: d.carrier,
     flight_number: d.flight_number,
     booking_ref: d.booking_ref,
+    booked: d.booked,
     price: d.price,
     currency: d.price !== null ? (d.currency ?? "CAD") : d.currency,
     notes: d.notes,

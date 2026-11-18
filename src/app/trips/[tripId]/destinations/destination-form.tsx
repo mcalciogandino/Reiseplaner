@@ -199,6 +199,10 @@ export function DestinationForm({
           <Field id="lodging_currency" label="Währung">
             <Input id="lodging_currency" name="lodging_currency" maxLength={3} defaultValue={v("lodging_currency")} placeholder="CAD" />
           </Field>
+          <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:col-span-2">
+            <input type="checkbox" name="booked" defaultChecked={v("booked") === "on"} className="size-5 accent-green-700" />
+            Gebucht
+          </label>
           <Field id="lodging_booking_ref" label="Buchungsnummer">
             <Input id="lodging_booking_ref" name="lodging_booking_ref" defaultValue={v("lodging_booking_ref")} />
           </Field>

@@ -48,10 +48,11 @@ export type Transfer = {
   notes: string | null;
   option_group: string | null;
   is_option: boolean;
+  booked: boolean;
 };
 
 export const TRANSFER_COLUMNS =
-  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s, price, currency, notes, option_group, is_option";
+  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s, price, currency, notes, option_group, is_option, booked";
 
 /** Wandelt "2027-07-01T10:30" in Ortszeit der Zeitzone in einen UTC-ISO-String. */
 export function localToUtcIso(local: string, timeZone: string): string {

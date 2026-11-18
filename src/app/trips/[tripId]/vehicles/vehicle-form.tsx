@@ -152,6 +152,10 @@ export function VehicleForm({
       </fieldset>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+          <input type="checkbox" name="booked" defaultChecked={v("booked") === "on"} className="size-5 accent-green-700" />
+          Gebucht
+        </label>
         <Field id="booking_ref" label="Buchungsnummer">
           <Input id="booking_ref" name="booking_ref" defaultValue={v("booking_ref")} />
         </Field>

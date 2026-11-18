@@ -15,7 +15,7 @@ export type DestinationFormState = {
 
 const FIELDS = [
   "name", "kind", "arrival_date", "departure_date", "timezone", "description",
-  "lodging_name", "lodging_checkin", "lodging_checkout", "lodging_price", "lodging_currency", "lodging_booking_ref", "notes",
+  "lodging_name", "lodging_checkin", "lodging_checkout", "lodging_price", "lodging_currency", "lodging_booking_ref", "booked", "notes",
   "lat", "lng", "place_label",
   "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country",
 ] as const;
@@ -55,6 +55,7 @@ const schema = z
       .refine((v) => v === "" || /^[A-Za-z]{3}$/.test(v), "Bitte die Währung mit drei Buchstaben angeben, z. B. CAD.")
       .transform((v) => (v === "" ? null : v.toUpperCase())),
     lodging_booking_ref: text(100),
+    booked: z.string().transform((v) => v === "on"),
     notes: text(2000),
     lat: z.string().trim(),
     lng: z.string().trim(),

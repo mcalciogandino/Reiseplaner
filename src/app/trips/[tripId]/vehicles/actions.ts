@@ -18,7 +18,7 @@ const local = z
 
 const FIELDS = [
   "kind", "provider", "vehicle_name", "pickup_place", "pickup_local", "pickup_tz", "return_place", "return_local",
-  "return_tz", "booking_ref", "price", "currency", "notes",
+  "return_tz", "booking_ref", "booked", "price", "currency", "notes",
   ...(["pickup_", "return_"] as const).flatMap((p) =>
     ["lat", "lng", "place_label", "addr_street", "addr_house_number", "addr_postcode", "addr_city", "addr_region", "addr_country"].map((f) => `${p}${f}`),
   ),
@@ -73,6 +73,7 @@ const schema = z
     return_local: local,
     return_tz: z.string().trim(),
     booking_ref: optText(100),
+    booked: z.string().transform((v) => v === "on"),
     price: z
       .string()
       .trim()
@@ -106,6 +107,7 @@ const schema = z
     return_at: d.return_local ? localToUtcIso(d.return_local, d.return_tz) : null,
     return_tz: d.return_local ? d.return_tz : null,
     booking_ref: d.booking_ref,
+    booked: d.booked,
     price: d.price,
     currency: d.price !== null ? (d.currency ?? "CAD") : d.currency,
     notes: d.notes,

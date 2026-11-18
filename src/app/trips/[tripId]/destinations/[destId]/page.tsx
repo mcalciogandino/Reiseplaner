@@ -47,7 +47,7 @@ async function Content({ params }: { params: Params }) {
           tripId={tripId}
           action={updateDestination.bind(null, tripId, destId)}
           range={range}
-          initial={dest}
+          initial={{ ...dest, booked: dest.booked ? "on" : "" }}
           submitLabel="Speichern"
           cancelHref={`/trips/${tripId}`}
         />

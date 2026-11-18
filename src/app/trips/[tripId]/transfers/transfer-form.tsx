@@ -349,6 +349,10 @@ export function TransferForm({
         <Field id="flight_number" label="Flugnummer">
           <Input id="flight_number" name="flight_number" defaultValue={v("flight_number")} />
         </Field>
+        <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+          <input type="checkbox" name="booked" defaultChecked={v("booked") === "on"} className="size-5 accent-green-700" />
+          Gebucht
+        </label>
         <Field id="booking_ref" label="Buchungsnummer">
           <Input id="booking_ref" name="booking_ref" defaultValue={v("booking_ref")} />
         </Field>
