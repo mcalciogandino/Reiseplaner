@@ -11,6 +11,7 @@ import { planSchema, type Plan, type PlanEndpoint } from "@/lib/ai/plan";
 import { storeRoute } from "@/lib/route-store";
 import { loadSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
+import { tidyAfterInsert } from "../timeline-actions";
 import { localToUtcIso } from "@/lib/transfers";
 
 export type AiState = { text: string; message?: string; plan?: Plan } | null;
@@ -320,5 +321,8 @@ export async function savePlan(tripId: string, formData: FormData): Promise<AiSt
   for (const r of routable) {
     if (r.row.kind === "drive") await storeRoute(supabase, tripId, r.id, r.row);
   }
+
+  // Neues an die logische Stelle der Zeitleiste setzen, damit nichts am Anfang oder Ende hängen bleibt.
+  await tidyAfterInsert(tripId, [...createdPlaces.map((id) => `p-${id}`), ...createdTransfers.map((id) => `t-${id}`)]);
   return null;
 }

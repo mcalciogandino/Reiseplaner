@@ -20,7 +20,7 @@ import {
   durationMinutes, formatDuration, formatLocal, KIND_LABELS, type Transfer, type TransferKind,
 } from "@/lib/transfers";
 import { formatDate } from "@/lib/trips";
-import { moveNode, resetOrder } from "@/app/trips/[tripId]/timeline-actions";
+import { moveNode, resetOrder, sortLogically } from "@/app/trips/[tripId]/timeline-actions";
 import { chooseOption } from "@/app/trips/[tripId]/transfers/actions";
 
 const TRANSFER_ICONS: Record<TransferKind, LucideIcon> = {
@@ -76,13 +76,22 @@ export function Timeline({
 
   return (
     <>
-    {pinned && (
-      <form action={resetOrder.bind(null, tripId)} className="mb-2">
-        <button type="submit" className="inline-flex min-h-11 items-center text-sm underline">
-          Reihenfolge zurücksetzen (wieder nach Zeit sortieren)
-        </button>
-      </form>
-    )}
+    <div className="mb-2 flex flex-wrap gap-x-4">
+      {mainKeys.length > 1 && (
+        <form action={sortLogically.bind(null, tripId)}>
+          <button type="submit" className="inline-flex min-h-11 items-center text-sm underline">
+            Logisch sortieren (nach Datum: Verschiebung → Ort → Verschiebung)
+          </button>
+        </form>
+      )}
+      {pinned && (
+        <form action={resetOrder.bind(null, tripId)}>
+          <button type="submit" className="inline-flex min-h-11 items-center text-sm underline">
+            Reihenfolge zurücksetzen (nur nach Zeit sortieren)
+          </button>
+        </form>
+      )}
+    </div>
     <ol aria-label="Zeitleiste" className="flex flex-col">
       {nodes.map((node, i) => (
         <li key={node.key} className="contents">
