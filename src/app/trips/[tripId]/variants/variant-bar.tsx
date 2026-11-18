@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadFamily, variantLabel } from "@/lib/variants";
 
 /** Reiter zum Wechseln zwischen Hauptplan und Varianten. Erscheint auch ohne Varianten, damit man sie anlegen kann. */
-export async function VariantBar({ tripId }: { tripId: string }) {
+export async function VariantBar({ tripId, suffix = "" }: { tripId: string; suffix?: string }) {
   const supabase = await createClient();
   const family = await loadFamily(supabase, tripId);
   if (!family.length) return null;
@@ -16,7 +16,7 @@ export async function VariantBar({ tripId }: { tripId: string }) {
         return (
           <Link
             key={v.id}
-            href={`/trips/${v.id}`}
+            href={`/trips/${v.id}${suffix}`}
             aria-current={current ? "page" : undefined}
             className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${
               current

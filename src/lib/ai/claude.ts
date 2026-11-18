@@ -10,7 +10,7 @@ export type ProposeResult =
   | { ok: true; proposal: Proposal }
   | { ok: false; message: string };
 
-type MessagesClient = { messages: Pick<Anthropic["messages"], "create"> };
+export type MessagesClient = { messages: Pick<Anthropic["messages"], "create"> };
 
 /**
  * Lässt Claude aus dem Text Orte und Verschiebungen vorschlagen (erzwungener Werkzeugaufruf,
@@ -78,10 +78,10 @@ function seenUrls(blocks: Block[]): Set<string> {
   return urls;
 }
 
-type Creds = { apiKey: string | null; model: string };
+export type Creds = { apiKey: string | null; model: string };
 
 /** Websuche-Runde: Claude sucht und fasst zusammen; bei pause_turn wird fortgesetzt. */
-async function webResearch(api: MessagesClient, creds: Creds, userText: string) {
+export async function webResearch(api: MessagesClient, creds: Creds, userText: string) {
   const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: userText }];
   const collected: Block[] = [];
   let summary = "";
@@ -102,7 +102,7 @@ async function webResearch(api: MessagesClient, creds: Creds, userText: string) 
   return { summary, seen: seenUrls(collected) };
 }
 
-function researchError(err: unknown): { ok: false; message: string } {
+export function researchError(err: unknown): { ok: false; message: string } {
   const status = (err as { status?: number })?.status;
   const detail = String((err as { message?: string })?.message ?? "");
   console.error("AI research failed:", status ?? (err instanceof Error ? err.name : "unknown"));

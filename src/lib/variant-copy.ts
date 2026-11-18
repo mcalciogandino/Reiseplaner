@@ -159,7 +159,6 @@ export function planVariantCopy(
   const vehicles = o.vehicles
     ? src.vehicles.map((v) => {
         const row: Row = { ...strip(v), id: take(v.id), trip_id: newTripId };
-        row.document_id = null;
         clearBooking(row, ["booking_ref"]);
         return row;
       })
