@@ -41,6 +41,14 @@ describe("logicalOrder", () => {
     expect(o).toEqual(["p-a", "t-1", "t-2", "p-b"]);
   });
 
+  it("am selben Tag entscheidet die Ankunftszeit (erst Flughafen, dann Hotel)", () => {
+    const flight = { ...t("1", "x", "airport", "2027-06-30T20:00:00Z"), arrive_at: "2027-07-01T09:00:00Z" };
+    const shuttle = { ...t("2", "airport", "hotel", "2027-07-01T10:00:00Z"), arrive_at: "2027-07-01T12:00:00Z" };
+    const o = logicalOrder([p("x", "2027-06-30"), p("hotel", "2027-07-01"), p("airport", "2027-07-01")], [flight, shuttle]);
+    expect(o.indexOf("p-airport")).toBeLessThan(o.indexOf("p-hotel"));
+    expect(o.indexOf("t-2")).toBe(o.indexOf("p-hotel") - 1);
+  });
+
   it("die Zeitleiste folgt der Reihenfolge, wenn sie festgelegt wird", () => {
     const dests = ["a", "b"].map((id) => ({ id, name: id, arrival_date: null, departure_date: null, sort_order: 0 }) as unknown as Destination);
     const legs = [{ id: "1", kind: "drive", from_destination_id: "a", to_destination_id: "b", from_place: null, to_place: null, depart_at: null, arrive_at: null } as unknown as Transfer];

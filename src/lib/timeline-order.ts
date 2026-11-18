@@ -30,12 +30,30 @@ export function logicalOrder(destinations: P[], transfers: T[]): string[] {
       arrivalDay.set(t.to_destination_id, d);
     }
   }
+  // Innerhalb eines Tages entscheidet die Ankunftszeit (z. B. erst Flughafen, dann Hotel), sonst die Routenreihenfolge.
+  const arrivalMs = new Map<string, number>();
+  for (const t of transfers) {
+    const ms = t.arrive_at ? Date.parse(t.arrive_at) : NaN;
+    if (t.to_destination_id && !Number.isNaN(ms) && (!arrivalMs.has(t.to_destination_id) || ms < arrivalMs.get(t.to_destination_id)!)) {
+      arrivalMs.set(t.to_destination_id, ms);
+    }
+  }
   let carry = "";
   const keyed = destinations.map((d, i) => {
     carry = d.arrival_date ?? arrivalDay.get(d.id) ?? carry;
-    return { d, i, key: carry };
+    const dayMs = carry ? Date.parse(`${carry}T00:00:00Z`) : -Infinity;
+    // Ankunftszeit nur innerhalb desselben Tages vergleichbar machen: Zeitzonen können den UTC-Tag verschieben.
+    const at = arrivalMs.get(d.id);
+    const within = at !== undefined && carry && Math.abs(at - dayMs) < 2 * 86400000 ? (at - dayMs) / 86400000 : null;
+    return { d, i, key: carry, within };
   });
-  const places = [...keyed].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.i - b.i)).map((k) => k.d);
+  const places = [...keyed]
+    .sort((a, b) => {
+      if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+      if (a.within !== null && b.within !== null && a.within !== b.within) return a.within - b.within;
+      return a.i - b.i;
+    })
+    .map((k) => k.d);
   const pos = new Map(places.map((p, i) => [p.id, i]));
 
   const before: T[][] = places.map(() => []);
