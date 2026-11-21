@@ -139,6 +139,15 @@ export function planVariantCopy(
       })
     : [];
 
+  // Fahrzeuge zuerst: Verschiebungen verweisen auf sie.
+  const vehicles = o.vehicles
+    ? src.vehicles.map((v) => {
+        const row: Row = { ...strip(v), id: take(v.id), trip_id: newTripId };
+        clearBooking(row, ["booking_ref"]);
+        return row;
+      })
+    : [];
+
   const groups = new Map<string, string>();
   const transfers = o.transfers
     ? src.transfers.map((t) => {
@@ -146,19 +155,12 @@ export function planVariantCopy(
         row.from_destination_id = mapId(t.from_destination_id);
         row.to_destination_id = mapId(t.to_destination_id);
         row.document_id = null; // Dokumente gehören zur Quell-Reise
+        row.vehicle_id = mapId(t.vehicle_id); // null, wenn die Fahrzeuge nicht übernommen werden
         if (t.option_group) {
           const g = String(t.option_group);
           if (!groups.has(g)) groups.set(g, newId());
           row.option_group = groups.get(g);
         }
-        clearBooking(row, ["booking_ref"]);
-        return row;
-      })
-    : [];
-
-  const vehicles = o.vehicles
-    ? src.vehicles.map((v) => {
-        const row: Row = { ...strip(v), id: take(v.id), trip_id: newTripId };
         clearBooking(row, ["booking_ref"]);
         return row;
       })

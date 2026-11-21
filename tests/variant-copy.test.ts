@@ -11,7 +11,7 @@ const snap = (): Snapshot => ({
     { id: "d2", trip_id: "T", name: "Banff", lodging_name: null, lodging_booking_ref: null, booked: false },
   ],
   transfers: [
-    { id: "t1", trip_id: "T", from_destination_id: "d1", to_destination_id: "d2", booking_ref: "R1", booked: true, option_group: "g", is_option: false, document_id: "doc" },
+    { id: "t1", trip_id: "T", from_destination_id: "d1", to_destination_id: "d2", booking_ref: "R1", booked: true, option_group: "g", is_option: false, document_id: "doc", vehicle_id: "v1" },
     { id: "t2", trip_id: "T", from_destination_id: "d1", to_destination_id: "d2", booking_ref: null, booked: false, option_group: "g", is_option: true },
   ],
   vehicles: [{ id: "v1", trip_id: "T", booking_ref: "V9", booked: true }],
@@ -40,6 +40,15 @@ describe("planVariantCopy", () => {
     expect(r.dayPlanItems[0]).toMatchObject({ day_plan_id: r.dayPlans[0].id, activity_id: r.activities[0].id, transfer_id: r.transfers[0].id });
     expect(r.budgetEntries[0]).toMatchObject({ activity_id: r.activities[0].id, transfer_id: r.transfers[0].id, document_id: null });
     expect(r.trip.timeline_order).toEqual([`p-${d1.id}`, `t-${r.transfers[0].id}`, `f-${r.transfers[0].id}-to`]);
+  });
+
+  it("biegt vehicle_id auf das kopierte Fahrzeug um, ohne Fahrzeuge bleibt sie leer", () => {
+    const r = planVariantCopy(snap(), DEFAULT_COPY, "NT", "B", "me", newId);
+    expect(r.vehicles[0].id).not.toBe("v1");
+    expect(r.transfers[0].vehicle_id).toBe(r.vehicles[0].id);
+    expect(r.transfers[1].vehicle_id).toBeNull();
+    const without = planVariantCopy(snap(), { ...DEFAULT_COPY, vehicles: false }, "NT", "B", "me", newId);
+    expect(without.transfers[0].vehicle_id).toBeNull();
   });
 
   it("lässt Buchungen weg, solange «Gebucht» aus ist", () => {

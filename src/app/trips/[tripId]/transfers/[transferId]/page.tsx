@@ -5,6 +5,7 @@ import { z } from "zod";
 import { DeleteForm } from "@/components/delete-form";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleLabel, type Vehicle } from "@/lib/vehicles";
 import { getTripRange } from "@/lib/trip-range";
 import { KIND_LABELS, TRANSFER_COLUMNS, utcToLocalInput, type Transfer } from "@/lib/transfers";
 import { deleteTransfer, recalculateRoute, updateTransfer } from "../actions";
@@ -44,6 +45,18 @@ async function Content({ params }: { params: Params }) {
     .order("sort_order", { ascending: true })
     .returns<StopOption[]>();
 
+  const { data: cars } = await supabase
+    .from("vehicles")
+    .select("id, kind, provider, vehicle_name, pickup_at, return_at")
+    .eq("trip_id", tripId)
+    .order("pickup_at", { ascending: true, nullsFirst: false });
+  const vehicles = (cars ?? []).map((c) => ({
+    id: c.id as string,
+    label: vehicleLabel(c as Pick<Vehicle, "kind" | "provider" | "vehicle_name">),
+    pickup_at: c.pickup_at as string | null,
+    return_at: c.return_at as string | null,
+  }));
+
   const initial: Record<string, string> = {
     kind: t.kind,
     from_destination_id: t.from_destination_id ?? "",
@@ -60,6 +73,7 @@ async function Content({ params }: { params: Params }) {
     flight_number: t.flight_number ?? "",
     booking_ref: t.booking_ref ?? "",
     booked: t.booked ? "on" : "",
+    vehicle_id: t.vehicle_id ?? "",
     from_lat: t.from_lat?.toString() ?? "",
     from_lng: t.from_lng?.toString() ?? "",
     to_lat: t.to_lat?.toString() ?? "",
@@ -77,6 +91,7 @@ async function Content({ params }: { params: Params }) {
           action={updateTransfer.bind(null, tripId, transferId)}
           range={range}
           stops={stops ?? []}
+          vehicles={vehicles}
           initial={initial}
           submitLabel="Speichern"
           cancelHref={`/trips/${tripId}`}

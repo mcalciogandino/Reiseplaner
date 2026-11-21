@@ -39,8 +39,8 @@ async function loadSnapshot(tripId: string): Promise<Snapshot | null> {
 
 const TABLES: [keyof Omit<ReturnType<typeof planVariantCopy>, "trip">, string][] = [
   ["destinations", "destinations"],
+  ["vehicles", "vehicles"], // vor den Verschiebungen (transfers.vehicle_id)
   ["transfers", "transfers"],
-  ["vehicles", "vehicles"],
   ["activities", "activities"],
   ["activityVotes", "activity_votes"],
   ["dayPlans", "day_plans"],

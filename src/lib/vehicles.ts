@@ -1,3 +1,5 @@
+import { driveKm, driveMinutes } from "./transfers";
+
 export type Vehicle = {
   id: string;
   kind: "car" | "camper" | "other";
@@ -44,4 +46,51 @@ export function vehicleLine(v: Vehicle): string {
     v.return_at ? `Rückgabe ${v.return_at}${v.return_place ? ` in ${v.return_place}` : ""}` : null,
   ];
   return `- ${bits.filter(Boolean).join(", ")}`;
+}
+
+/**
+ * Fahrzeug, das für eine neue Autofahrt vorgeschlagen wird: das zur Abfahrt verfügbare (bei
+ * mehreren das zuletzt übernommene), ohne Abfahrtszeit oder ohne Treffer das einzige bzw. das
+ * zuletzt übernommene Fahrzeug der Reise.
+ */
+export function suggestVehicle<T extends Pick<Vehicle, "pickup_at" | "return_at">>(vehicles: T[], departIso: string | null): T | null {
+  if (vehicles.length === 0) return null;
+  const latest = (list: T[]) => [...list].sort((a, b) => (b.pickup_at ?? "").localeCompare(a.pickup_at ?? ""))[0];
+  if (departIso) {
+    const at = availableVehicles(vehicles, departIso);
+    if (at.length > 0) return latest(at);
+  }
+  return vehicles.length === 1 ? vehicles[0] : latest(vehicles);
+}
+
+export type VehicleUsage = { trips: number; km: number; minutes: number; withoutKm: number };
+
+type DriveLike = {
+  vehicle_id: string | null;
+  distance_km: number | null;
+  route_distance_m: number | null;
+  duration_min: number | null;
+  route_duration_s: number | null;
+};
+
+/** Fahrten, Kilometer und Fahrzeit je Fahrzeug aus den zugeordneten Autofahrten (ohne Alternativen). */
+export function vehicleUsage(drives: DriveLike[]): Map<string, VehicleUsage> {
+  const usage = new Map<string, VehicleUsage>();
+  for (const d of drives) {
+    if (!d.vehicle_id) continue;
+    const u = usage.get(d.vehicle_id) ?? { trips: 0, km: 0, minutes: 0, withoutKm: 0 };
+    const km = driveKm(d);
+    u.trips += 1;
+    u.km += km ?? 0;
+    u.minutes += driveMinutes(d) ?? 0;
+    if (km === null) u.withoutKm += 1;
+    usage.set(d.vehicle_id, u);
+  }
+  return usage;
+}
+
+/** Beschriftung in Auswahllisten: «Camper · H-C Compact Motorhome». */
+export function vehicleLabel(v: Pick<Vehicle, "kind" | "provider" | "vehicle_name">): string {
+  const name = [v.provider, v.vehicle_name].filter(Boolean).join(" ");
+  return name ? `${VEHICLE_LABELS[v.kind]} · ${name}` : VEHICLE_LABELS[v.kind];
 }

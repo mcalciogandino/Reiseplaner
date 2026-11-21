@@ -16,6 +16,7 @@ import { PLACE_KIND_DEFS } from "@/lib/destinations";
 import { estimateTransfer, type Point } from "@/lib/estimate";
 import { zoneOptions } from "@/lib/timezone";
 import { KIND_LABELS, KINDS, localToUtcIso, utcToLocalInput, type TransferKind } from "@/lib/transfers";
+import { suggestVehicle } from "@/lib/vehicles";
 import { dateTimeBounds } from "@/lib/trips";
 import type { TransferFormState } from "./actions";
 
@@ -25,6 +26,13 @@ export type StopOption = {
   timezone: string | null;
   lat: number | null;
   lng: number | null;
+};
+
+export type VehicleOption = {
+  id: string;
+  label: string;
+  pickup_at: string | null;
+  return_at: string | null;
 };
 
 const toPoint = (lat: string, lng: string): Point | null =>
@@ -37,6 +45,8 @@ export function TransferForm({
   action,
   range,
   stops,
+  vehicles = [],
+  suggestCar = false,
   initial = {},
   submitLabel,
   cancelHref,
@@ -44,6 +54,9 @@ export function TransferForm({
   action: (prev: TransferFormState, formData: FormData) => Promise<TransferFormState>;
   range: { start_date: string; end_date: string };
   stops: StopOption[];
+  vehicles?: VehicleOption[];
+  /** Neue Fahrt: das zur Abfahrt verfügbare Fahrzeug vorschlagen. */
+  suggestCar?: boolean;
   initial?: Record<string, string>;
   submitLabel: string;
   cancelHref: string;
@@ -75,6 +88,8 @@ export function TransferForm({
     from: v("from_new_kind") || "city",
     to: v("to_new_kind") || "city",
   });
+  const [carSel, setCarSel] = useState(v("vehicle_id"));
+  const [carTouched, setCarTouched] = useState(!suggestCar || v("vehicle_id") !== "");
   const [fromSel, setFromSel] = useState(v("from_destination_id"));
   const [toSel, setToSel] = useState(v("to_destination_id"));
 
@@ -86,6 +101,16 @@ export function TransferForm({
   };
   const from = pointOf(fromSel, freeFrom, newFrom);
   const to = pointOf(toSel, freeTo, newTo);
+  let departIso: string | null = null;
+  if (departLocal.length === 16 && departTz) {
+    try {
+      departIso = localToUtcIso(departLocal, departTz);
+    } catch {
+      departIso = null;
+    }
+  }
+  const suggestedCar = suggestCar && !carTouched ? (suggestVehicle(vehicles, departIso)?.id ?? "") : "";
+  const carValue = carTouched ? carSel : suggestedCar;
   const estimate = from && to ? estimateTransfer(kind as TransferKind, from, to) : null;
 
   const durationValue = !touched.duration && estimate ? String(estimate.durationMin) : duration;
@@ -216,6 +241,29 @@ export function TransferForm({
           ))}
         </Select>
       </Field>
+
+      {kind === "drive" && vehicles.length > 0 && (
+        <Field
+          id="vehicle_id"
+          label="Fahrzeug"
+          hint={!carTouched && carValue ? "Vorgeschlagen nach Abfahrtszeit. Du kannst es ändern." : undefined}
+        >
+          <Select
+            id="vehicle_id"
+            name="vehicle_id"
+            value={carValue}
+            onChange={(e) => {
+              setCarSel(e.target.value);
+              setCarTouched(true);
+            }}
+          >
+            <option value="">– keines –</option>
+            {vehicles.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       <fieldset className="flex flex-col gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <legend className="px-1 text-sm font-medium">Von</legend>

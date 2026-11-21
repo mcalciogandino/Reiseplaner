@@ -50,10 +50,11 @@ export type Transfer = {
   option_group: string | null;
   is_option: boolean;
   booked: boolean;
+  vehicle_id: string | null;
 };
 
 export const TRANSFER_COLUMNS =
-  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s, price, currency, notes, option_group, is_option, booked";
+  "id, kind, from_destination_id, to_destination_id, from_place, to_place, depart_at, depart_tz, arrive_at, arrive_tz, duration_min, distance_km, carrier, flight_number, booking_ref, from_lat, from_lng, to_lat, to_lng, route_geojson, route_distance_m, route_duration_s, price, currency, notes, option_group, is_option, booked, vehicle_id";
 
 /** Wandelt "2027-07-01T10:30" in Ortszeit der Zeitzone in einen UTC-ISO-String. */
 export function localToUtcIso(local: string, timeZone: string): string {
@@ -71,6 +72,18 @@ export function utcToLocalInput(iso: string, timeZone: string): string {
 /** UTC-ISO → "01.07.2027 10:30" in der Ortszeit. */
 export function formatLocal(iso: string, timeZone: string): string {
   return format(new TZDate(parseISO(iso), timeZone), "dd.MM.yyyy HH:mm");
+}
+
+/** Strecke einer Fahrt in km: erfasste Distanz, sonst die berechnete Strassenroute. */
+export function driveKm(t: Pick<Transfer, "distance_km" | "route_distance_m">): number | null {
+  if (t.distance_km !== null) return t.distance_km;
+  return t.route_distance_m !== null ? Math.round(t.route_distance_m / 1000) : null;
+}
+
+/** Fahrzeit in Minuten: erfasste Dauer, sonst die der berechneten Strassenroute. */
+export function driveMinutes(t: Pick<Transfer, "duration_min" | "route_duration_s">): number | null {
+  if (t.duration_min !== null) return t.duration_min;
+  return t.route_duration_s !== null ? Math.round(t.route_duration_s / 60) : null;
 }
 
 /** Dauer in Minuten aus Abfahrt/Ankunft, sonst die manuell erfasste Dauer. */

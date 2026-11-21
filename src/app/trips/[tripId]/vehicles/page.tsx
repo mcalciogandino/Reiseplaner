@@ -7,7 +7,8 @@ import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { formatLocal } from "@/lib/transfers";
-import { VEHICLE_COLUMNS, VEHICLE_LABELS, type Vehicle } from "@/lib/vehicles";
+import { formatDuration } from "@/lib/transfers";
+import { VEHICLE_COLUMNS, VEHICLE_LABELS, vehicleUsage, type Vehicle } from "@/lib/vehicles";
 import { BookedToggle, StatusBadge } from "@/components/booked-toggle";
 import { STATUS_CARD, vehicleStatus } from "@/lib/booking";
 import { deleteVehicle } from "./actions";
@@ -37,6 +38,17 @@ async function Content({ params }: { params: Params }) {
     .order("pickup_at", { ascending: true, nullsFirst: false })
     .returns<Vehicle[]>();
 
+  // Zugeordnete Autofahrten (ohne Alternativen) für Kilometer, Fahrten und Fahrzeit.
+  const { data: drives } = await supabase
+    .from("transfers")
+    .select("vehicle_id, distance_km, route_distance_m, duration_min, route_duration_s")
+    .eq("trip_id", tripId)
+    .eq("kind", "drive")
+    .eq("is_option", false);
+  const usage = vehicleUsage((drives ?? []) as Parameters<typeof vehicleUsage>[0]);
+  const unassigned = (drives ?? []).filter((d) => !d.vehicle_id).length;
+  const nf = new Intl.NumberFormat("de-CH");
+
   const when = (iso: string | null, tz: string | null) => (iso ? formatLocal(iso, tz ?? "UTC") : "offen");
 
   return (
@@ -63,6 +75,11 @@ async function Content({ params }: { params: Params }) {
         </p>
       )}
       {!error && (data ?? []).length === 0 && <p className="text-sm text-neutral-600 dark:text-neutral-400">Noch keine Fahrzeuge.</p>}
+      {unassigned > 0 && (data ?? []).length > 0 && (
+        <p role="status" className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+          {unassigned} {unassigned === 1 ? "Autofahrt ist" : "Autofahrten sind"} keinem Fahrzeug zugeordnet und {unassigned === 1 ? "zählt" : "zählen"} hier nicht mit. Wähle das Fahrzeug beim Bearbeiten der Fahrt.
+        </p>
+      )}
       <ul className="flex flex-col gap-3">
         {(data ?? []).map((v) => (
           <li key={v.id}>
@@ -86,6 +103,30 @@ async function Content({ params }: { params: Params }) {
                     .join(" · ")}
                 </p>
                 {v.notes && <p className="text-neutral-600 dark:text-neutral-400">{v.notes}</p>}
+                {(() => {
+                  const u = usage.get(v.id);
+                  return (
+                    <dl className="mt-2 grid grid-cols-3 gap-2 rounded-lg bg-neutral-100 p-3 dark:bg-neutral-800" aria-label="Fahrleistung">
+                      <div>
+                        <dt className="text-xs text-neutral-500">Kilometer</dt>
+                        <dd className="font-semibold">{nf.format(u?.km ?? 0)} km</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-neutral-500">Fahrten</dt>
+                        <dd className="font-semibold">{u?.trips ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-neutral-500">Fahrzeit</dt>
+                        <dd className="font-semibold">{u && u.minutes > 0 ? `ca. ${formatDuration(u.minutes)}` : "–"}</dd>
+                      </div>
+                      {u && u.withoutKm > 0 && (
+                        <p className="col-span-3 text-xs text-neutral-600 dark:text-neutral-400">
+                          {u.withoutKm} {u.withoutKm === 1 ? "Fahrt hat" : "Fahrten haben"} keine Distanz und {u.withoutKm === 1 ? "fehlt" : "fehlen"} in den Kilometern.
+                        </p>
+                      )}
+                    </dl>
+                  );
+                })()}
                 <div className="mt-1 flex flex-wrap items-center gap-3">
                   <StatusBadge status={vehicleStatus(v)} />
                   <BookedToggle tripId={tripId} table="vehicles" id={v.id} booked={v.booked} label={VEHICLE_LABELS[v.kind]} />

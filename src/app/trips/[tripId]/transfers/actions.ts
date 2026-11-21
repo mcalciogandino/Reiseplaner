@@ -18,7 +18,7 @@ export type TransferFormState = {
 const FIELDS = [
   "kind", "from_destination_id", "to_destination_id", "from_place", "to_place",
   "depart_local", "depart_tz", "arrive_local", "arrive_tz",
-  "duration_min", "distance_km", "carrier", "flight_number", "booking_ref", "booked", "price", "currency", "notes",
+  "duration_min", "distance_km", "carrier", "flight_number", "booking_ref", "booked", "price", "currency", "notes", "vehicle_id",
   "from_lat", "from_lng", "to_lat", "to_lng",
   ...(["from", "to"] as const).flatMap((side) => NEW_PLACE_KEYS.map((k) => `${side}_new_${k}`)),
 ];
@@ -72,6 +72,7 @@ const schema = z
       .refine((v) => v === "" || /^[A-Za-z]{3}$/.test(v), "Bitte die Währung mit drei Buchstaben angeben, z. B. CAD.")
       .transform((v) => (v === "" ? null : v.toUpperCase())),
     notes: text(500),
+    vehicle_id: optUuid,
     from_lat: z.string().trim(),
     from_lng: z.string().trim(),
     to_lat: z.string().trim(),
@@ -118,6 +119,8 @@ const schema = z
     price: d.price,
     currency: d.price !== null ? (d.currency ?? "CAD") : d.currency,
     notes: d.notes,
+    // Ein Fahrzeug gibt es nur für Autofahrten.
+    vehicle_id: d.kind === "drive" ? d.vehicle_id : null,
   }))
   .refine((d) => !d.depart_at || !d.arrive_at || d.arrive_at >= d.depart_at, {
     message: "Die Ankunft darf nicht vor der Abfahrt liegen.",
@@ -210,6 +213,10 @@ async function resolvePlaces(
   }
   const parsed = schema.safeParse(cleaned);
   if (!parsed.success) return { message: parsed.error.issues[0].message };
+  if (parsed.data.vehicle_id) {
+    const { data: car } = await supabase.from("vehicles").select("id").eq("id", parsed.data.vehicle_id).eq("trip_id", tripId).maybeSingle();
+    if (!car) return { message: "Das gewählte Fahrzeug gehört nicht zu dieser Reise." };
+  }
 
   const created = Object.keys(rows).length ? await createNewPlaces(supabase, tripId, values, rows) : {};
   if (!created) return { message: "Der neue Ort konnte nicht gespeichert werden." };
