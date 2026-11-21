@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { refreshRoutes } from "@/lib/route-store";
 import { createClient } from "@/lib/supabase/server";
 import { tidyAfterInsert } from "./timeline-actions";
 
@@ -95,5 +96,7 @@ export async function applyFix(tripId: string, fixJson: string): Promise<void> {
     const { error } = await supabase.from("destinations").update({ arrival_date: fix.date, departure_date: dep }).eq("id", fix.place).eq("trip_id", tripId);
     if (error) return fail("update", error);
   }
+  // Umgebogene oder neue Fahrten bekommen ihre Strassenroute (best effort).
+  await refreshRoutes(supabase, tripId, fix.kind === "merge" ? [fix.keep] : []);
   revalidatePath(`/trips/${tripId}`, "layout");
 }
