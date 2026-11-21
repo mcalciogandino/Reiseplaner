@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { PLACE_KINDS } from "@/lib/destinations";
 import { isValidCoord, roundCoord } from "@/lib/geocode";
+import { refreshRoutes } from "@/lib/route-store";
 import { createClient } from "@/lib/supabase/server";
 import { isValidTimeZone } from "@/lib/timezone";
 
@@ -170,6 +171,7 @@ export async function updateDestination(
   }
 
   const supabase = await createClient();
+  const { data: before } = await supabase.from("destinations").select("lat, lng").eq("id", destId).eq("trip_id", tripId).maybeSingle();
   const { data, error } = await supabase
     .from("destinations")
     .update(parsed.data)
@@ -180,6 +182,9 @@ export async function updateDestination(
     console.error("updateDestination failed:", error?.code, error?.message);
     return { message: "Der Ort konnte nicht gespeichert werden.", values };
   }
+  // Ändert sich der Standort, stimmen die Strassenrouten der angrenzenden Fahrten nicht mehr.
+  const moved = !before || Number(before.lat) !== Number(parsed.data.lat) || Number(before.lng) !== Number(parsed.data.lng) || (before.lat === null) !== (parsed.data.lat === null);
+  await refreshRoutes(supabase, tripId, moved ? [destId] : []);
   revalidatePath("/", "layout");
   redirect(`/trips/${tripId}`);
 }

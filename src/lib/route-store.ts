@@ -1,4 +1,5 @@
 import { fetchRoute } from "./route-service";
+import { TRANSFER_COLUMNS } from "./transfers";
 import { loadSettings } from "./settings";
 import { ROUTABLE_KINDS } from "./routing";
 import type { createClient } from "./supabase/server";
@@ -71,3 +72,40 @@ export async function storeRoute(
   return { ok: true, message: `Route berechnet: ${km} km, ${Math.floor(min / 60)} h ${min % 60} min.` };
 }
 
+
+/** Obergrenze je Aufruf: schont den Routendienst und die Antwortzeit. */
+const REFRESH_LIMIT = 12;
+
+/**
+ * Berechnet Autofahrten neu, deren Route nicht mehr stimmt oder fehlt:
+ * - Fahrten, die an einem der übergebenen Orte starten oder enden (Standort geändert), und
+ * - Fahrten ohne Route, bei denen Start und Ziel inzwischen einen Standort haben.
+ * Best effort: Fehler des Routendienstes werden verschluckt. Liefert die Zahl berechneter Routen.
+ */
+export async function refreshRoutes(supabase: Supabase, tripId: string, changedDestinationIds: string[] = []): Promise<number> {
+  const { data } = await supabase.from("transfers").select(TRANSFER_COLUMNS).eq("trip_id", tripId).eq("kind", "drive");
+  const legs = (data ?? []) as unknown as Transfer[];
+  if (!legs.length) return 0;
+
+  const changed = new Set(changedDestinationIds);
+  const ids = [...new Set(legs.flatMap((t) => [t.from_destination_id, t.to_destination_id]).filter((x): x is string => !!x))];
+  const { data: rows } = ids.length ? await supabase.from("destinations").select("id, lat, lng").in("id", ids).eq("trip_id", tripId) : { data: [] };
+  const located = new Map((rows ?? []).map((r) => [r.id as string, r.lat !== null && r.lng !== null]));
+  const hasPoint = (id: string | null, lat: number | null, lng: number | null) => (id && located.has(id) ? located.get(id)! : lat !== null && lng !== null);
+
+  const todo = legs.filter((t) => {
+    const touched = (t.from_destination_id && changed.has(t.from_destination_id)) || (t.to_destination_id && changed.has(t.to_destination_id));
+    const missing = !t.route_geojson && hasPoint(t.from_destination_id, t.from_lat, t.from_lng) && hasPoint(t.to_destination_id, t.to_lat, t.to_lng);
+    return touched || missing;
+  });
+
+  let done = 0;
+  for (const t of todo.slice(0, REFRESH_LIMIT)) {
+    try {
+      if ((await storeRoute(supabase, tripId, t.id, t)).ok) done++;
+    } catch (err) {
+      console.error("refreshRoutes failed:", err instanceof Error ? err.name : "unknown");
+    }
+  }
+  return done;
+}

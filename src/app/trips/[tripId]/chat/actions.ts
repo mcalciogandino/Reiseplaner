@@ -11,7 +11,7 @@ import { loadTripContext } from "@/lib/ai/trip-context";
 import { loadSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { DESTINATION_COLUMNS, type Destination } from "@/lib/destinations";
-import { storeRoute } from "@/lib/route-store";
+import { refreshRoutes, storeRoute } from "@/lib/route-store";
 import { TRANSFER_COLUMNS, type Transfer } from "@/lib/transfers";
 import { savePlan } from "../ai/actions";
 
@@ -140,6 +140,12 @@ export async function applyChatProposal(
   for (const ch of chosenChanges) {
     const failedChange = await applyChange(supabase, tripId, ch);
     if (failedChange) return { message: failedChange };
+  }
+
+  if (chosenChanges.length) {
+    // Geänderte Orte oder Verschiebungen: betroffene Fahrstrecken neu berechnen (best effort).
+    const moved = chosenChanges.filter((c) => c.op === "update_place" && c.patch && ("lat" in c.patch || "lng" in c.patch)).map((c) => c.id);
+    await refreshRoutes(supabase, tripId, moved);
   }
 
   if (planPicked) {
