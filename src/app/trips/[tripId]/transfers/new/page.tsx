@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { vehicleLabel, type Vehicle } from "@/lib/vehicles";
 import { getTripRange } from "@/lib/trip-range";
 import { createTransfer } from "../actions";
 import { TransferForm, type StopOption } from "../transfer-form";
@@ -41,6 +42,18 @@ async function Content({ params, searchParams }: { params: Params; searchParams:
     .order("sort_order", { ascending: true })
     .returns<StopOption[]>();
 
+  const { data: cars } = await supabase
+    .from("vehicles")
+    .select("id, kind, provider, vehicle_name, pickup_at, return_at")
+    .eq("trip_id", tripId)
+    .order("pickup_at", { ascending: true, nullsFirst: false });
+  const vehicles = (cars ?? []).map((c) => ({
+    id: c.id as string,
+    label: vehicleLabel(c as Pick<Vehicle, "kind" | "provider" | "vehicle_name">),
+    pickup_at: c.pickup_at as string | null,
+    return_at: c.return_at as string | null,
+  }));
+
   // «+» in der Zeitleiste: Von/Nach mit den Nachbarorten vorbelegen (nur bekannte Orte).
   const known = new Map((stops ?? []).map((s) => [s.id, s]));
   const initial: Record<string, string> = {};
@@ -64,6 +77,8 @@ async function Content({ params, searchParams }: { params: Params; searchParams:
           action={createTransfer.bind(null, tripId)}
           range={range}
           stops={stops ?? []}
+          vehicles={vehicles}
+          suggestCar
           initial={initial}
           submitLabel="Verschiebung hinzufügen"
           cancelHref={`/trips/${tripId}`}

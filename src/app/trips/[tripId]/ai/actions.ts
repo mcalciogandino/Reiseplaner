@@ -9,6 +9,7 @@ import { loadTripContext } from "@/lib/ai/trip-context";
 import { proposeFromText, researchFromText } from "@/lib/ai/claude";
 import { planSchema, type Plan, type PlanEndpoint } from "@/lib/ai/plan";
 import { storeRoute } from "@/lib/route-store";
+import { assignVehicles } from "@/lib/vehicle-assign";
 import { loadSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { tidyAfterInsert } from "../timeline-actions";
@@ -316,6 +317,9 @@ export async function savePlan(tripId: string, formData: FormData): Promise<AiSt
     if (error || !data) return fail("vehicle", error);
     createdVehicles.push(data.id as string);
   }
+
+  // Autofahrten dem passenden Fahrzeug zuordnen (auch einem, das gerade mit angelegt wurde).
+  await assignVehicles(supabase, tripId, createdTransfers);
 
   // Strassenrouten für Autofahrten: best effort, ein Fehler des Dienstes ändert nichts am Speichern.
   for (const r of routable) {

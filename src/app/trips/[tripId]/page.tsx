@@ -118,6 +118,9 @@ async function TripOverview({ params }: { params: Promise<{ tripId: string }> })
           <Link href={`/trips/${tripId}/map`} className={linkButton}>
             Karte
           </Link>
+          <Link href={`/trips/${tripId}/statistiken`} className={linkButton}>
+            Statistiken
+          </Link>
           <Link href={`/trips/${tripId}/edit`} className={linkButton}>
             Bearbeiten
           </Link>

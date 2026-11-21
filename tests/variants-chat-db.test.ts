@@ -105,8 +105,8 @@ async function insertAll(r: ReturnType<typeof planVariantCopy>) {
   };
   await ins("trips", [r.trip]);
   await ins("destinations", r.destinations);
-  await ins("transfers", r.transfers);
   await ins("vehicles", r.vehicles);
+  await ins("transfers", r.transfers);
   await ins("activities", r.activities);
   await ins("activity_votes", r.activityVotes);
   await ins("day_plans", r.dayPlans);
