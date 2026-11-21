@@ -67,8 +67,11 @@ export function Timeline({
   // Erster und letzter Ort/Verschiebung (ohne freie Orte): dort ist je ein Pfeil gesperrt.
   const mainKeys = nodes.filter((n) => n.type !== "free").map((n) => n.key);
   const numbers = new Map<string, number>();
+  const placeNumbers = new Map<string, number>();
   nodes.forEach((n) => {
     if (n.type === "transfer") numbers.set(n.key, numbers.size + 1);
+    // Ortsnummer wie auf der Karte: Position unter allen Reiseorten der Zeitleiste.
+    if (n.type === "place") placeNumbers.set(n.key, placeNumbers.size + 1);
   });
 
   // Tagesüberschrift vor dem ersten Element eines neuen Tages («Tag 1», «Tag 2» …).
@@ -107,6 +110,7 @@ export function Timeline({
               <PlaceCard
                 tripId={tripId}
                 d={node.destination}
+                number={placeNumbers.get(node.key) ?? 0}
                 nodeKey={node.key}
                 first={mainKeys[0] === node.key}
                 last={mainKeys[mainKeys.length - 1] === node.key}
@@ -234,8 +238,8 @@ function AddRow({ tripId, nodes, index }: { tripId: string; nodes: TimelineNode[
 }
 
 function PlaceCard({
-  tripId, d, nodeKey, first, last,
-}: { tripId: string; d: Destination; nodeKey: string; first: boolean; last: boolean }) {
+  tripId, d, number, nodeKey, first, last,
+}: { tripId: string; d: Destination; number: number; nodeKey: string; first: boolean; last: boolean }) {
   const tz = TIMEZONES.find((t) => t.value === d.timezone)?.label;
   const n =
     d.arrival_date && d.departure_date
@@ -249,7 +253,15 @@ function PlaceCard({
   return (
     <Card className={`relative flex items-start gap-3 transition-colors hover:border-red-700 ${STATUS_CARD[placeStatus(d)]}`}>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-neutral-500">{PLACE_KIND_LABELS[d.kind] ?? "Ort"}</p>
+        <p className="flex items-center gap-1.5 text-xs text-neutral-500">
+          <span
+            title="Nummer auf der Karte"
+            className="inline-flex size-5 items-center justify-center rounded-full bg-red-700 text-[11px] font-semibold text-white"
+          >
+            {number}
+          </span>
+          {PLACE_KIND_LABELS[d.kind] ?? "Ort"}
+        </p>
         {/* Der Link deckt über ::after die ganze Karte ab; die Pfeiltasten liegen darüber. */}
         <Link
           href={`/trips/${tripId}/destinations/${d.id}`}
